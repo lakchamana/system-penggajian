@@ -4,6 +4,7 @@
 /storage/*
 !/storage/.gitkeep
 /node_modules/
+/vendor/
 /test-results/
 /playwright-report/
 /.playwright-mcp/

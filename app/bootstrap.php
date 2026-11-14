@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 define('BASE_PATH', dirname(__DIR__));
+if (is_file(BASE_PATH . '/vendor/autoload.php')) require_once BASE_PATH . '/vendor/autoload.php';
 date_default_timezone_set('Asia/Jakarta');
 spl_autoload_register(static function (string $class): void {
     if (str_starts_with($class, 'App\\')) {

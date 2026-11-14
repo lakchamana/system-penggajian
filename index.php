@@ -8,6 +8,8 @@ $method=$_SERVER['REQUEST_METHOD']??'GET';
 if(!in_array($method,['GET','POST'],true)){http_response_code(405);header('Allow: GET, POST');exit;}
 if($path==='/setup'){(new AuthController())->setup();exit;}
 if($path==='/login'){(new AuthController())->login();exit;}
+if($path==='/forgot-password'){(new AuthController())->forgotPassword();exit;}
+if($path==='/reset-password'){(new AuthController())->resetPassword();exit;}
 if(empty($_SESSION['user'])){if(expects_json())json_response(['error'=>'Silakan masuk kembali.'],401);redirect('/login');}
 $q=Database::connection()->prepare('SELECT session_version FROM app_users WHERE id=?');$q->execute([$_SESSION['user']['id']]);$version=$q->fetchColumn();
 if($version===false || (int)$version!==(int)$_SESSION['user']['session_version']){$_SESSION=[];if(expects_json())json_response(['error'=>'Sesi berakhir. Silakan masuk kembali.'],401);redirect('/login');}

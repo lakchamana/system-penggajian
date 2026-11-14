@@ -38,7 +38,7 @@ Salinan pribadi bersifat opsional dan tidak perlu digunakan untuk bekerja bersam
 
 1. Klik **Start All** pada Laragon untuk mengaktifkan Apache dan MySQL.
 2. Pada penggunaan pertama atau setelah folder proyek dipindahkan/diubah namanya, klik dua kali **`JALANKAN.bat`** di folder proyek. Launcher menghubungkan `www/system-penggajian` ke folder proyek saat ini dan membuka **http://localhost/system-penggajian/**. Pada penggunaan berikutnya cukup **Start All**, lalu buka alamat tersebut. Tidak perlu menyalin proyek ke folder `www` atau menjalankan server PHP terpisah.
-3. Jika database belum memiliki akun, buat nama, ID pengguna, dan kata sandi minimal 12 karakter. Jika memakai backup SQL, masuk menggunakan akun yang ada dalam backup. Aplikasi tidak menyediakan kredensial bawaan.
+3. Jika database belum memiliki akun, buat nama, ID pengguna, email pemulihan, dan kata sandi minimal 12 karakter. Jika memakai backup SQL, masuk menggunakan akun yang ada dalam backup. Aplikasi tidak menyediakan kredensial bawaan.
 4. Masuk. Periode awal mengikuti transaksi terbaru yang tersedia pada database; tanpa transaksi aplikasi menampilkan keadaan kosong.
 
 Pada instalasi lokal awal, data aplikasi utama sudah dimigrasikan. Repositori publik hanya berisi kode, skema, dan dokumentasi: backup, ekspor database, nominal gaji asli, kredensial, serta hasil QA yang memuat data pribadi tetap disimpan lokal dan tidak disertakan. Instalasi baru perlu melakukan migrasi menggunakan backup milik pengguna. Database `penggajian_test` digunakan khusus pengujian dan tidak menjadi database aplikasi utama.
@@ -50,10 +50,31 @@ Persyaratan: PHP 8.1 atau lebih baru dengan `pdo_mysql`, `bcmath`, `mbstring`, `
 Salin `.env.example` menjadi `.env`, sesuaikan koneksi database, kemudian jalankan:
 
 ```powershell
+composer install --no-dev
 php scripts/install.php
 ```
 
 Gunakan nama database kosong yang khusus untuk aplikasi ini. Installer membuat tabel yang belum ada dan tidak menghapus tabel atau data yang sudah tersedia. Arahkan virtual host ke direktori proyek; `.htaccess` melindungi source, konfigurasi, arsip, skrip, dan dokumentasi dari HTTP. Untuk jaringan kantor, arahkan akses ke komputer Laragon tersebut sesuai pengaturan jaringan setempat.
+
+### Akun tambahan dan lupa kata sandi melalui SMTP
+
+Pada instalasi lama, jalankan `composer install --no-dev` lalu `php scripts/migrate-auth.php` untuk menambahkan email pemulihan dan tabel reset tanpa mengganti akun lama. Akun lama perlu menambahkan email melalui **Profil Saya**, menggunakan kata sandi saat ini.
+
+Untuk membuat akun tambahan dari terminal lokal:
+
+```powershell
+php scripts/create-user.php --username=nama_pengguna --name="Nama Lengkap" --email=alamat@example.com
+```
+
+Skrip menghasilkan kata sandi acak yang ditampilkan sekali di terminal. ID atau email yang sudah dipakai ditolak; akun lama tidak ditimpa. Ubah kata sandi sementara melalui **Profil Saya** setelah masuk.
+
+Tautan **Lupa kata sandi?** di halaman masuk mengirim tautan reset lewat PHPMailer SMTP. Isi `SMTP_HOST`, `SMTP_PORT`, `SMTP_ENCRYPTION`, `SMTP_AUTH`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `MAIL_FROM_ADDRESS`, dan `MAIL_FROM_NAME` di `.env`. Contoh Gmail memakai `smtp.gmail.com`, port `587`, enkripsi `tls`, dan `SMTP_AUTH=true`; isi username serta alamat pengirim dengan email Gmail pengirim. `SMTP_PASSWORD` memakai App Password Google. Pembuatan App Password memerlukan Verifikasi 2 Langkah; lihat [panduan resmi Google](https://support.google.com/accounts/answer/185833?hl=id). Kredensial cukup disimpan di `.env` lokal.
+
+Pastikan `APP_URL` sama dengan alamat aplikasi yang dapat dibuka penerima email, termasuk subfolder, misalnya `http://localhost/system-penggajian`. Alamat localhost hanya dapat digunakan pada komputer yang menjalankan aplikasi. Untuk akses komputer lain, gunakan alamat server yang dapat dijangkau penerima.
+
+Token reset disimpan sebagai hash, berlaku 30 menit, dan hanya bisa dipakai sekali. Permintaan dibatasi maksimal 5 per IP dan 3 per email dalam 15 menit; percobaan berulang memperpanjang masa pembatasan. Tautan baru menggantikan tautan sebelumnya setelah SMTP menerima pesan. Kegagalan SMTP mempertahankan tautan sebelumnya dan mencatat kesalahan tanpa kredensial atau token ke `storage/app.log`. Respons permintaan tidak mengungkap apakah email terdaftar. Reset kata sandi mengakhiri sesi lama. Penyimpanan profil membatalkan tautan reset dan sesi lain yang masih aktif.
+
+Jalankan `node tests/password-reset.js` untuk menguji SMTP lokal, reset, kedaluwarsa, pembatasan, invalidasi sesi, dan tampilan desktop/ponsel. Pengujian memakai database sementara `penggajian_auth_test_*` dan server SMTP penangkap lokal, lalu membersihkannya. Gunakan `PHP_PATH` bila executable PHP dengan `pdo_mysql` belum ada di PATH. Pengujian ini tidak mengirim email internet dan tidak menyentuh database kerja.
 
 ### Memperbarui instalasi yang sudah berisi data
 
