@@ -263,7 +263,7 @@ async function verify(browser, folder) {
     await page.goto(base + '/');
     await expect(page).toHaveURL(base + '/login');
     await expect(page.locator('.auth-form')).toHaveAttribute('action', prefix + '/login');
-    await page.getByLabel('ID pengguna', { exact: true }).fill('qa_penggajian');
+    await page.getByLabel('ID pengguna / Nomor induk', { exact: true }).fill('qa_penggajian');
     await page.getByLabel('Kata sandi', { exact: true }).fill('Qa!Payroll-2026-Local');
     await page.getByRole('button', { name: 'Masuk ke ruang kerja' }).click();
     await expect(page).toHaveURL(base + '/');

@@ -5,6 +5,11 @@ CREATE TABLE IF NOT EXISTS app_users (
  email VARCHAR(254) NULL UNIQUE,
  password_hash VARCHAR(255) NOT NULL,
  session_version INT UNSIGNED NOT NULL DEFAULT 1,
+ role ENUM('superadmin','karyawan') NOT NULL DEFAULT 'superadmin',
+ employee_id BIGINT UNSIGNED NULL UNIQUE,
+ is_active TINYINT(1) NOT NULL DEFAULT 1,
+ must_change_password TINYINT(1) NOT NULL DEFAULT 0,
+ password_encrypted TEXT NULL,
  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 CREATE TABLE IF NOT EXISTS login_attempts (

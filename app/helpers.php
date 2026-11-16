@@ -1,6 +1,14 @@
 <?php
 declare(strict_types=1);
 function e(mixed $value): string { return htmlspecialchars((string) ($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
+function user_home(): string {
+    return ($_SESSION['user']['role']??'superadmin')==='karyawan' ? '/karyawan/slip' : '/';
+}
+function account_session(array $user): array {
+    return ['id'=>$user['id'],'username'=>$user['username'],'name'=>$user['employee_name']??$user['name'],
+        'session_version'=>$user['session_version'],'role'=>$user['role'],'employee_id'=>$user['employee_id'],
+        'must_change_password'=>(bool)$user['must_change_password'],'nip'=>$user['nip']??null];
+}
 function app_base_path(): string {
     $script = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '/index.php');
     return str_ends_with($script, '/index.php') ? rtrim(substr($script, 0, -10), '/') : '';

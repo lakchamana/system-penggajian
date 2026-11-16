@@ -27,13 +27,13 @@ final class PasswordReset {
         }
         $email = strtolower(trim($email));
         if (!$this->allowRequest('ip:' . $ip, 5) || !$this->allowRequest('email:' . $email, 3)) return;
-        $q = $this->db->prepare('SELECT id FROM app_users WHERE email=?');
+        $q = $this->db->prepare("SELECT id FROM app_users WHERE email=? AND role='superadmin' AND is_active=1");
         $q->execute([$email]);
         $id = $q->fetchColumn();
         if (!$id) return;
         $this->db->beginTransaction();
         try {
-            $q = $this->db->prepare('SELECT id,name,email FROM app_users WHERE id=? FOR UPDATE');
+            $q = $this->db->prepare("SELECT id,name,email FROM app_users WHERE id=? AND role='superadmin' AND is_active=1 FOR UPDATE");
             $q->execute([$id]);
             $user = $q->fetch();
             if (!$user || strcasecmp((string)$user['email'], $email) !== 0) { $this->db->rollBack(); return; }
@@ -51,7 +51,7 @@ final class PasswordReset {
 
     public function valid(string $token): bool {
         if (!preg_match('/^[a-f0-9]{64}$/D', $token)) return false;
-        $q = $this->db->prepare('SELECT user_id FROM password_reset_tokens WHERE token_hash=? AND expires_at>NOW()');
+        $q = $this->db->prepare("SELECT t.user_id FROM password_reset_tokens t JOIN app_users u ON u.id=t.user_id WHERE t.token_hash=? AND t.expires_at>NOW() AND u.role='superadmin' AND u.is_active=1");
         $q->execute([hash('sha256', $token)]);
         return (bool)$q->fetchColumn();
     }
@@ -65,7 +65,7 @@ final class PasswordReset {
         if (!$id) return false;
         $this->db->beginTransaction();
         try {
-            $q = $this->db->prepare('SELECT id FROM app_users WHERE id=? FOR UPDATE');
+            $q = $this->db->prepare("SELECT id FROM app_users WHERE id=? AND role='superadmin' AND is_active=1 FOR UPDATE");
             $q->execute([$id]);
             if (!$q->fetchColumn()) { $this->db->rollBack(); return false; }
             $q = $this->db->prepare('DELETE FROM password_reset_tokens WHERE user_id=? AND token_hash=? AND expires_at>NOW()');

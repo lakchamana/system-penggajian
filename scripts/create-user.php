@@ -14,7 +14,7 @@ try {
     $db = App\Core\Database::connection();
     App\Services\AuthSchema::migrate($db);
     $password = bin2hex(random_bytes(12));
-    $db->prepare('INSERT INTO app_users (username,name,email,password_hash) VALUES (?,?,?,?)')->execute([$username, $name, $email, password_hash($password, PASSWORD_DEFAULT)]);
+    $db->prepare("INSERT INTO app_users (username,name,email,password_hash,role) VALUES (?,?,?,?,'superadmin')")->execute([$username, $name, $email, password_hash($password, PASSWORD_DEFAULT)]);
     echo "Akun dibuat.\nID pengguna: $username\nEmail: $email\nKata sandi sementara: $password\nUbah kata sandi melalui Profil Saya setelah masuk.\n";
 } catch (PDOException $e) {
     fwrite(STDERR, $e->getCode() === '23000' ? "ID pengguna atau email sudah dipakai. Akun lama tidak diubah.\n" : "Pembuatan akun gagal. Periksa koneksi dan skema database.\n");

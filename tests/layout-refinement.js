@@ -97,6 +97,7 @@ module.exports=async function verifyLayout(page,base,fixture,output){
  const defaultStats=await page.locator('.stats-grid').innerText();
  const resetPayroll=async()=>{
   await page.locator('.payroll-actions').getByRole('link',{name:'Reset',exact:true}).click();await expect(page).toHaveURL(base+'/transaksi');
+  await page.waitForLoadState('load');
   await expect(page.locator('#list-month')).toHaveValue('10');await expect(page.locator('#list-year')).toHaveValue('2026');await expect(page.locator('#list-department')).toHaveValue('');await expect(page.locator('#list-search')).toHaveValue('');
   expect(await page.locator('.stats-grid').innerText()).toBe(defaultStats);await expect(page.locator('.app-table tbody tr')).toHaveCount(2);await expect(page.locator('.table-pagination')).toHaveCount(0);
  };

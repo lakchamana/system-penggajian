@@ -50,11 +50,11 @@ document.addEventListener('DOMContentLoaded', function () {
  const headers={'Accept':'application/json','X-Requested-With':'XMLHttpRequest'};
  const submitting=new WeakSet();
  document.querySelectorAll('form[method=post],form[method=POST]').forEach(form=>{
-  if(form.getAttribute('id')==='payroll-form')return;
+  if(form.getAttribute('id')==='payroll-form'||form.hasAttribute('data-custom-submit'))return;
   form.addEventListener('submit',async event=>{
    event.preventDefault();if(submitting.has(form))return;submitting.add(form);
    try{
-    if(form.dataset.confirm&&!await showFeedback({severity:'warning',title:'Konfirmasi penghapusan',message:form.dataset.confirm,confirmation:true,primaryLabel:'Ya, hapus',cancelLabel:'Batal'}))return;
+    if(form.dataset.confirm&&!await showFeedback({severity:'warning',title:form.dataset.confirmTitle||'Konfirmasi penghapusan',message:form.dataset.confirm,confirmation:true,primaryLabel:form.dataset.confirmLabel||'Ya, hapus',cancelLabel:'Batal'}))return;
     const body=new FormData(form);form.inert=true;
     const response=await fetch(form.getAttribute('action')||location.href,{method:'POST',body,headers});const data=await readResponse(response);
     if(!response.ok||data.error)throw {...data,status:response.status};

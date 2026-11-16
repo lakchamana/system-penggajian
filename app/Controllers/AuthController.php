@@ -20,7 +20,7 @@ final class AuthController extends Controller {
                 $lock=$db->query("SELECT GET_LOCK('mh_payroll_first_user',5)")->fetchColumn();
                 try {
                     if (!$lock || (int)$db->query('SELECT COUNT(*) FROM app_users')->fetchColumn()>0) { $db->rollBack(); redirect('/login'); }
-                    $q=$db->prepare('INSERT INTO app_users(username,name,email,password_hash) VALUES(?,?,?,?)'); $q->execute([$username,$name,$email,password_hash($password,PASSWORD_DEFAULT)]); $db->commit();
+                    $q=$db->prepare("INSERT INTO app_users(username,name,email,password_hash,role) VALUES(?,?,?,?,'superadmin')"); $q->execute([$username,$name,$email,password_hash($password,PASSWORD_DEFAULT)]); $db->commit();
                     flash('success','Akun berhasil dibuat. Silakan masuk.'); redirect('/login');
                 } finally { $db->query("SELECT RELEASE_LOCK('mh_payroll_first_user')"); }
             }
@@ -30,7 +30,7 @@ final class AuthController extends Controller {
     public function login(): void {
         $db=Database::connection();
         if (!(int)$db->query('SELECT COUNT(*) FROM app_users')->fetchColumn()) redirect('/setup');
-        if (!empty($_SESSION['user'])) redirect('/');
+        if (!empty($_SESSION['user'])) redirect(user_home());
         $error=null;
         if ($_SERVER['REQUEST_METHOD']==='POST') {
             $this->validateCsrf(); $username=trim((string)($_POST['username']??''));
@@ -38,10 +38,11 @@ final class AuthController extends Controller {
             $q=$db->prepare('SELECT * FROM login_attempts WHERE fingerprint=?'); $q->execute([$fingerprint]); $attempt=$q->fetch();
             if ($attempt && (int)$attempt['failures']>=8 && strtotime($attempt['last_attempt'])>time()-900) $error='Terlalu banyak percobaan masuk. Coba kembali dalam 15 menit.';
             else {
-                $q=$db->prepare('SELECT * FROM app_users WHERE username=?'); $q->execute([$username]); $user=$q->fetch();
-                if ($user && password_verify((string)($_POST['password']??''),$user['password_hash'])) {
-                    session_regenerate_id(true); $_SESSION['user']=['id'=>$user['id'],'username'=>$user['username'],'name'=>$user['name'],'session_version'=>$user['session_version']]; $_SESSION['csrf']=bin2hex(random_bytes(32));
-                    $db->prepare('DELETE FROM login_attempts WHERE fingerprint=?')->execute([$fingerprint]); $this->audit('login','app_users',(string)$user['id']); redirect('/');
+                $q=$db->prepare('SELECT u.*,k.nip,k.nama AS employee_name FROM app_users u LEFT JOIN karyawan k ON k.id=u.employee_id WHERE u.username=?'); $q->execute([$username]); $user=$q->fetch();
+                if ($user && $user['is_active'] && in_array($user['role'],['superadmin','karyawan'],true) && ($user['role']!=='karyawan' || ($user['nip']!==null && $user['username']===$user['nip'])) && password_verify((string)($_POST['password']??''),$user['password_hash'])) {
+                    session_regenerate_id(true); $_SESSION['user']=account_session($user); $_SESSION['csrf']=bin2hex(random_bytes(32));
+                    unset($_SESSION['employee_password_reminder_shown']);
+                    $db->prepare('DELETE FROM login_attempts WHERE fingerprint=?')->execute([$fingerprint]); $this->audit('login','app_users',(string)$user['id']); redirect(user_home());
                 }
                 $q=$db->prepare('INSERT INTO login_attempts(fingerprint,failures,last_attempt) VALUES(?,1,NOW()) ON DUPLICATE KEY UPDATE failures=IF(last_attempt<DATE_SUB(NOW(),INTERVAL 15 MINUTE),1,failures+1),last_attempt=NOW()'); $q->execute([$fingerprint]);
                 $error='ID pengguna atau kata sandi tidak sesuai.';

@@ -16,6 +16,7 @@ final class MasterController extends Controller {
                     if($module==='bagian') {
                         foreach(['karyawan','tunj_harian','tunj_konsumsi','tunj_lembur','tunj_infal','tunj_overtime'] as $t){$q=$db->prepare("SELECT COUNT(*) FROM `$t` WHERE kd_bagian=?");$q->execute([$before['kd_bagian']]);if($q->fetchColumn())throw new \InvalidArgumentException('Bagian masih digunakan. Perbarui data terkait sebelum menghapus.');}
                     } elseif($module==='karyawan') {
+                        $q=$db->prepare('SELECT id FROM app_users WHERE employee_id=?');$q->execute([$id]);if($q->fetchColumn())throw new \InvalidArgumentException('Karyawan masih terhubung ke akun. Nonaktifkan akses akun; riwayat karyawan tetap disimpan.');
                         foreach(['penghasilan','tunj_jam','p_anak','p_bjbs','p_bank','p_lunak','p_lain','tabungan'] as $t){$q=$db->prepare("SELECT COUNT(*) FROM `$t` WHERE nip=?");$q->execute([$before['nip']]);if($q->fetchColumn())throw new \InvalidArgumentException('Karyawan masih memiliki transaksi atau komponen gaji. Data tidak dihapus.');}
                     }
                     $db->prepare("DELETE FROM `$table` WHERE id=?")->execute([$id]);$this->audit('delete',$module,(string)$id,$before);$db->commit();flash('success','Data berhasil dihapus.');redirect('/master/'.$module);

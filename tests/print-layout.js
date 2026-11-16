@@ -35,7 +35,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     const errors = [];page.on('pageerror', error => errors.push(error.message));
     await page.clock.setFixedTime(new Date('2026-10-31T09:30:25Z'));
     await page.goto(base + '/login');
-    await page.getByLabel('ID pengguna', { exact: true }).fill('qa_print');
+    await page.getByLabel('ID pengguna / Nomor induk', { exact: true }).fill('qa_print');
     await page.getByLabel('Kata sandi', { exact: true }).fill('Qa!Print-2026-Local');
     await page.getByRole('button', { name: 'Masuk ke ruang kerja', exact: true }).click();
     await expect(page).toHaveURL(base + '/');

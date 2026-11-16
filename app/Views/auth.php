@@ -3,7 +3,7 @@ $mode = $mode ?? ($setup ? 'setup' : 'login');
 $descriptions = [
     'setup' => 'Buat akun pengelola pertama untuk memulai. Tidak ada kata sandi bawaan.',
     'login' => 'Masuk ke akun Anda untuk melanjutkan pekerjaan.',
-    'forgot' => 'Masukkan email yang terdaftar pada akun Anda. Kami akan mengirim tautan untuk mengatur ulang kata sandi.',
+    'forgot' => 'Untuk superadmin, masukkan email pemulihan. Karyawan yang lupa password dapat menghubungi superadmin untuk memperoleh password akunnya.',
     'reset' => 'Buat kata sandi baru sepanjang 12–72 karakter untuk akun Anda.',
 ];
 $action = match ($mode) { 'forgot' => 'forgot-password', 'reset' => 'reset-password', default => $mode };
@@ -45,7 +45,7 @@ $submit = match ($mode) { 'setup' => 'Buat akun pengelola', 'forgot' => 'Kirim t
                 <div class="mb-4"><label class="form-label" for="email">Email pemulihan</label><input class="form-control" type="email" id="email" name="email" maxlength="254" required autocomplete="email" value="<?=e($_POST['email']??'')?>" <?=$mode==='forgot'?'autofocus':''?>></div>
             <?php endif;?>
             <?php if($setup || $mode==='login'):?>
-                <div class="mb-4"><label class="form-label" for="username">ID pengguna</label><input class="form-control" id="username" name="username" required autocomplete="username" maxlength="50" autofocus value="<?=e($_POST['username']??'')?>" placeholder="Masukkan ID pengguna"><?php if($setup):?><div class="form-text">3–50 karakter: huruf, angka, titik, garis bawah, atau tanda hubung.</div><?php endif;?></div>
+                <div class="mb-4"><label class="form-label" for="username"><?=$setup?'ID pengguna':'ID pengguna / Nomor induk'?></label><input class="form-control" id="username" name="username" required autocomplete="username" maxlength="50" autofocus value="<?=e($_POST['username']??'')?>" placeholder="<?=$setup?'Masukkan ID pengguna':'Masukkan ID pengguna atau nomor induk'?>"><?php if($setup):?><div class="form-text">3–50 karakter: huruf, angka, titik, garis bawah, atau tanda hubung.</div><?php endif;?></div>
             <?php endif;?>
             <?php if($mode!=='forgot'):?>
                 <?php if($mode==='reset'):?><input type="hidden" name="token" value="<?=e($token)?>"><?php endif;?>

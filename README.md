@@ -45,7 +45,7 @@ Pada instalasi lokal awal, data aplikasi utama sudah dimigrasikan. Repositori pu
 
 ## Instalasi pada komputer lain
 
-Persyaratan: PHP 8.1 atau lebih baru dengan `pdo_mysql`, `bcmath`, `mbstring`, `session`, dan `json`; MySQL 8; Apache dengan `mod_rewrite` dan `AllowOverride All`.
+Persyaratan: PHP 8.1 atau lebih baru dengan `pdo_mysql`, `bcmath`, `mbstring`, `session`, `json`, dan `openssl` (AES-256-GCM); MySQL 8; Apache dengan `mod_rewrite` dan `AllowOverride All`.
 
 Salin `.env.example` menjadi `.env`, sesuaikan koneksi database, kemudian jalankan:
 
@@ -75,6 +75,39 @@ Pastikan `APP_URL` sama dengan alamat aplikasi yang dapat dibuka penerima email,
 Token reset disimpan sebagai hash, berlaku 30 menit, dan hanya bisa dipakai sekali. Permintaan dibatasi maksimal 5 per IP dan 3 per email dalam 15 menit; percobaan berulang memperpanjang masa pembatasan. Tautan baru menggantikan tautan sebelumnya setelah SMTP menerima pesan. Kegagalan SMTP mempertahankan tautan sebelumnya dan mencatat kesalahan tanpa kredensial atau token ke `storage/app.log`. Respons permintaan tidak mengungkap apakah email terdaftar. Reset kata sandi mengakhiri sesi lama. Penyimpanan profil membatalkan tautan reset dan sesi lain yang masih aktif.
 
 Jalankan `node tests/password-reset.js` untuk menguji SMTP lokal, reset, kedaluwarsa, pembatasan, invalidasi sesi, dan tampilan desktop/ponsel. Pengujian memakai database sementara `penggajian_auth_test_*` dan server SMTP penangkap lokal, lalu membersihkannya. Gunakan `PHP_PATH` bila executable PHP dengan `pdo_mysql` belum ada di PATH. Pengujian ini tidak mengirim email internet dan tidak menyentuh database kerja.
+
+### Portal slip gaji karyawan
+
+Portal membedakan **superadmin** dan **karyawan**. Akun pengelola lama tetap menjadi superadmin. Untuk memperbarui instalasi, cadangkan database, lalu jalankan:
+
+```powershell
+composer install
+php scripts/configure-employee-portal.php
+php scripts/migrate-auth.php
+php scripts/seed-employee-portal.php
+```
+
+Konfigurasi membuat `EMPLOYEE_PASSWORD_KEY` acak di `.env` lokal dan mempertahankan kunci yang sudah ada. Installer baru sudah memasang skema akun; konfigurasi kunci dan seeder tetap dijalankan secara eksplisit. Seeder hanya menambahkan tiga karyawan dummy berikut beserta slip Oktober 2026 pada bagian `DMY`:
+
+| Nama | Nomor induk / ID login | Gaji bersih contoh |
+|---|---|---:|
+| Dummy Karyawan 1 | `DUMMY001` | Rp3.000.000 |
+| Dummy Karyawan 2 | `DUMMY002` | Rp3.500.000 |
+| Dummy Karyawan 3 | `DUMMY003` | Rp4.000.000 |
+
+Password awal ketiganya adalah **`Mutiara@2026!`** dari `EMPLOYEE_INITIAL_PASSWORD` di konfigurasi lokal. Password karyawan menggunakan 8-72 karakter dan harus berbeda dari password saat ini maupun password awal. Pengulangan seeder mempertahankan password pribadi dan status akun; benturan identitas atau perubahan data dummy menghentikan proses tanpa menimpa data.
+
+Setelah login, karyawan langsung membuka **Slip Gaji Saya**, termasuk ketika masih memakai password awal. Popup pengingat muncul sekali per sesi login selama password awal belum diganti, dengan pilihan **Ubah Sekarang** atau **Nanti**. Menunda pengingat tetap mengizinkan akses slip. Setelah password diganti, popup berhenti muncul dan sesi lain dibatalkan.
+
+Halaman slip hanya berisi filter **Bulan**, **Tahun**, tombol **Cetak** dan **Unduh PDF**, serta dokumen slip yang langsung terlihat. Periode awal menggunakan bulan/tahun berjalan dalam zona waktu **Asia/Jakarta**, meskipun transaksi terbaru berada pada periode lain. Mengubah bulan atau tahun langsung memperbarui dokumen melalui GET tanpa membuka dialog cetak. Tahun mencakup tahun berjalan, tahun terpilih, dan riwayat milik karyawan. Periode kosong menampilkan lembar skeleton statis dengan pesan **Slip gaji {bulan} {tahun} belum tersedia.** serta kedua tombol tindakan nonaktif; periode tidak valid ditolak dengan HTTP 422.
+
+Pratinjau, cetakan, dan unduhan memakai satu template bergaya **legacy**: Times New Roman, hitam-putih, penghasilan/potongan berdampingan, garis tipis, serta tanda tangan di bawah. Kertas tetap **A4 portrait**, margin 12 mm, satu transaksi per halaman, menggunakan nominal tersimpan. Pada ponsel, kedua kelompok tersusun vertikal agar tetap terbaca. Tombol **Cetak** membuka dialog printer browser. **Unduh PDF** langsung mengunduh file `slip-gaji-YYYY-MM.pdf` tanpa dialog cetak melalui GET `/karyawan/slip/pdf?bulan=...&tahun=...`. Endpoint memeriksa sesi dan kepemilikan dari akun, menolak periode kosong/tidak valid, dan tidak menyimpan PDF di server maupun cache. Pembuatan PDF menggunakan [Dompdf](https://github.com/dompdf/dompdf); jalankan `composer install` setelah menarik pembaruan. Akses jaringan dan eksekusi PHP/JavaScript dinonaktifkan pada renderer. Setelah dialog ditutup, slip dan filter tetap terlihat. URL detail lama tetap memeriksa kepemilikan lalu mengarahkan ke periode terkait; parameter `view=1` lama tidak mencetak otomatis. Kartu identitas tambahan, judul pengantar, promosi sidebar, dan footer tambahan tidak ditampilkan pada halaman slip. Chart.js tidak dimuat pada halaman karyawan. Format laporan superadmin menggunakan template sebelumnya.
+
+Superadmin membuka **Akun Karyawan** untuk mencari nama/NIP, mengaktifkan atau menonaktifkan akses, serta memakai **Lihat Password**. Tombol tersebut langsung membuka password terbaru di modal tanpa memasukkan ulang password superadmin. Pembukaan tetap memerlukan sesi superadmin aktif dan CSRF, dicatat dalam audit tanpa isi password, dan tidak di-cache. Password dibersihkan saat modal ditutup atau tab disembunyikan. Kartu pembuatan akun di halaman ini sudah dihapus; layanan pembuatan akun melalui skrip tetap tersedia. NIP mempertahankan nol di depan dan karyawan yang terhubung ke akun tidak dapat dihapus. Penonaktifan membatalkan sesi aktif, sementara aktivasi mempertahankan password pribadi. Pemulihan melalui email tetap khusus superadmin.
+
+Autentikasi memakai hash password. Salinan password karyawan disimpan terpisah sebagai ciphertext AES-256-GCM dengan nonce acak dan identitas akun sebagai pengikat. Hash dan ciphertext berubah dalam satu transaksi. **Cadangkan database dan kunci `EMPLOYEE_PASSWORD_KEY` secara privat.** Kunci tidak berada dalam dump database; kunci hilang atau diganti membuat password tersimpan tidak dapat dibuka. Skrip konfigurasi menolak membuat pengganti jika ciphertext sudah ada. Jangan memasukkan `.env`, kunci, atau backup ke Git. Akun superadmin tidak memiliki salinan password yang dapat dibaca kembali.
+
+Jalankan `npm run test:employee` untuk menguji migrasi akun lama, enkripsi, pengingat yang dapat ditunda, validasi 8 karakter, default bulan berjalan, filter otomatis, pratinjau legacy, cetak manual dan unduh PDF langsung, isolasi slip, pembukaan password tanpa verifikasi ulang, invalidasi sesi, serta tampilan 1440/390/360 px. Suite menggunakan database sementara `penggajian_employee_test_*` dan tidak mengubah database kerja. PDF normal dan nama/nominal panjang serta screenshot sintetis berada di `storage/qa/employee-portal/`. Jalankan `python tests/verify-employee-pdfs.py` setelah suite selesai untuk memeriksa ukuran A4 portrait, jumlah halaman, kelengkapan teks, dan batas kertas; pemeriksaan ini memerlukan PyMuPDF seperti suite verifikasi cetak yang sudah ada.
 
 ### Memperbarui instalasi yang sudah berisi data
 

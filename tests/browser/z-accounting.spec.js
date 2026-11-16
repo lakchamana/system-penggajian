@@ -56,7 +56,7 @@ test.describe.serial('Accounting validation, confirmation and feedback',()=>{
   expect(new URL(baseURL).hostname).toBe('127.0.0.1');
   expect(new URL(baseURL).origin).toBe(new URL(process.env.PAYROLL_TEST_URL||'http://127.0.0.1:8018').origin);
   await page.goto('/login');
-  await page.getByLabel('ID pengguna',{exact:true}).fill('qa_penggajian');
+  await page.getByLabel('ID pengguna / Nomor induk',{exact:true}).fill('qa_penggajian');
   await page.getByLabel('Kata sandi',{exact:true}).fill('Qa!Payroll-2026-Local');
   await page.getByRole('button',{name:'Masuk ke ruang kerja',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Dashboard Penggajian.'})).toBeVisible();

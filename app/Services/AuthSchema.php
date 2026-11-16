@@ -10,6 +10,17 @@ final class AuthSchema {
         if (!in_array('email', $columns, true)) {
             $db->exec('ALTER TABLE app_users ADD COLUMN email VARCHAR(254) NULL AFTER name, ADD UNIQUE KEY uq_app_users_email (email)');
         }
+        foreach ([
+            'role' => "ENUM('superadmin','karyawan') NOT NULL DEFAULT 'superadmin'",
+            'employee_id' => 'BIGINT UNSIGNED NULL UNIQUE',
+            'is_active' => 'TINYINT(1) NOT NULL DEFAULT 1',
+            'must_change_password' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'password_encrypted' => 'TEXT NULL',
+        ] as $column => $definition) {
+            if (!in_array($column, $columns, true)) $db->exec("ALTER TABLE app_users ADD COLUMN `$column` $definition");
+        }
+        $foreignKey = $db->query("SELECT COUNT(*) FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE() AND TABLE_NAME='app_users' AND CONSTRAINT_NAME='fk_app_user_employee'")->fetchColumn();
+        if (!$foreignKey) $db->exec('ALTER TABLE app_users ADD CONSTRAINT fk_app_user_employee FOREIGN KEY (employee_id) REFERENCES karyawan(id) ON DELETE RESTRICT');
         $db->exec('CREATE TABLE IF NOT EXISTS password_reset_tokens (
             user_id BIGINT UNSIGNED PRIMARY KEY,
             token_hash CHAR(64) NOT NULL UNIQUE,

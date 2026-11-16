@@ -59,7 +59,7 @@ async function requestReset(page, base, email = 'qa-auth@example.com') {
 }
 async function login(page, base, password) {
   await page.goto(base + '/login'); await closeFeedback(page);
-  await page.getByLabel('ID pengguna', { exact: true }).fill('qa_auth');
+  await page.getByLabel('ID pengguna / Nomor induk', { exact: true }).fill('qa_auth');
   await page.getByLabel('Kata sandi', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Masuk ke ruang kerja' }).click();
 }
