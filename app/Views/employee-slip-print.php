@@ -6,17 +6,24 @@ $quantityFields=['ulembur'=>'lembur','uinfal'=>'infal','uovertime'=>'overtime'];
 <article class="employee-print-slip" aria-label="Slip gaji <?=e($row['nama'])?>" data-slip-nip="<?=e($row['nip'])?>">
  <div class="employee-legacy-body">
  <h2 class="employee-legacy-title">SLIP GAJI KARYAWAN YAYASAN MUTIARA HIKMAH</h2>
- <table class="employee-legacy-identity"><colgroup><col style="width:30mm"><col style="width:3mm"><col></colgroup><tbody>
+ <table class="employee-legacy-identity"><colgroup><col style="width:34mm"><col style="width:5mm"><col></colgroup><tbody>
   <tr><td>NIP</td><td>:</td><td><?=e($row['nip'])?></td></tr>
   <tr><td>Nama</td><td>:</td><td><?=e($row['nama'])?></td></tr>
   <tr><td>Bagian</td><td>:</td><td><?=e($row['nama_bagian'])?></td></tr>
  </tbody></table>
- <table class="employee-legacy-attendance"><tbody><tr>
-  <td>Jumlah Hari Efektif : <span data-slip-quantity="hefektif"><?=e($row['hefektif'])?></span></td>
-  <td>Masuk Kerja : <span data-slip-quantity="hmasuk"><?=e($row['hmasuk'])?></span></td>
-  <td>Bulan : <?=e(month_name((int)$row['bulan']).' '.$row['tahun'])?></td>
- </tr></tbody></table>
- <p class="employee-legacy-absence">Izin / alpha : <span data-slip-quantity="hijin"><?=e($row['hijin'])?></span><span class="employee-absence-gap">Sakit : <span data-slip-quantity="halpha"><?=e($row['halpha'])?></span></span></p>
+ <div class="employee-legacy-attendance">
+  <div class="employee-legacy-attendance-group"><table class="employee-legacy-metric"><tbody>
+   <tr><td>Jumlah Hari Efektif</td><td>:</td><td data-slip-quantity="hefektif"><?=e($row['hefektif'])?></td></tr>
+   <tr><td>Izin / alpha</td><td>:</td><td data-slip-quantity="hijin"><?=e($row['hijin'])?></td></tr>
+  </tbody></table></div>
+  <div class="employee-legacy-attendance-group"><table class="employee-legacy-metric"><tbody>
+   <tr><td>Masuk Kerja</td><td>:</td><td data-slip-quantity="hmasuk"><?=e($row['hmasuk'])?></td></tr>
+   <tr><td>Sakit</td><td>:</td><td data-slip-quantity="halpha"><?=e($row['halpha'])?></td></tr>
+  </tbody></table></div>
+  <div class="employee-legacy-attendance-group"><table class="employee-legacy-metric"><tbody>
+   <tr><td>Bulan</td><td>:</td><td><?=e(month_name((int)$row['bulan']).' '.$row['tahun'])?></td></tr>
+  </tbody></table></div>
+ </div>
  <div class="employee-legacy-columns">
  <?php foreach([['Penghasilan',PrintLayout::INCOME,'tpenghasilan','Jumlah Kotor'],['Potongan',PrintLayout::DEDUCTIONS,'tpotongan','Total Potongan']] as $groupIndex=>[$heading,$fields,$totalField,$totalLabel]):?>
   <?php if($groupIndex):?><div class="employee-legacy-gutter"></div><?php endif;?>
