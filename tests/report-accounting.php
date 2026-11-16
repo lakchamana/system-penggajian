@@ -72,7 +72,7 @@ try{
         foreach(['rekap_bagian','absensi','slip_karyawan','slip_bagian'] as $type){
             $xpath=reportRender(['type'=>$type,...$period]);
             if(str_starts_with($type,'slip')){
-                $slips=$xpath->query('//article[contains(@class,"slip")]');reportCheck($slips->length===count($rows),'slip count');$byNip=[];foreach($rows as $row)$byNip[$row['nip']]=$row;
+                $slips=$xpath->query('//article[contains(concat(" ",normalize-space(@class)," ")," slip ")]');reportCheck($slips->length===count($rows),'screen slip count');$byNip=[];foreach($rows as $row)$byNip[$row['nip']]=$row;
                 foreach($slips as $slip){$nip=$slip->getAttribute('data-slip-nip');reportCheck(isset($byNip[$nip]),'slip scope');$row=$byNip[$nip];
                     foreach([...array_keys(PayrollFields::INCOME),...array_keys(PayrollFields::DEDUCTIONS),...array_keys(PayrollFields::TOTALS)] as $field){
                         $amount=$xpath->query('.//*[@data-slip-field="'.$field.'"]',$slip)->item(0);

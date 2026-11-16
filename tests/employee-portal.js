@@ -29,12 +29,12 @@ async function choose(page,id,value){
 }
 (async()=>{
  let server,rootServer,browser,created=false;
- const errors=[];
+ const errors=[],extraServers=[];
  try{
   const state=JSON.parse(fixture('create'));created=true;console.log(fixture('unit'));
   const port=await freePort(),origin=`http://127.0.0.1:${port}`,base=origin+'/'+path.basename(root);
   const testEnv={...process.env,DB_DATABASE:database,EMPLOYEE_PASSWORD_KEY:createHash('sha256').update('employee-portal-synthetic-test-key').digest('base64'),EMPLOYEE_INITIAL_PASSWORD:initial};
-  const start=(port,documentRoot)=>spawn(php,['-d','variables_order=EGPCS','-S',`127.0.0.1:${port}`,'-t',documentRoot,path.join(root,'scripts/router.php')],{cwd:root,env:testEnv,stdio:'ignore',windowsHide:true});
+  const start=(port,documentRoot,overrides={})=>spawn(php,['-d','variables_order=EGPCS','-S',`127.0.0.1:${port}`,'-t',documentRoot,path.join(root,'scripts/router.php')],{cwd:root,env:{...testEnv,...overrides},stdio:'ignore',windowsHide:true});
   server=start(port,path.dirname(root));await ready(base);
   browser=await chromium.launch({channel:'chrome',headless:true});fs.mkdirSync(output,{recursive:true});
   const newPage=async(width=1440)=>{const context=await browser.newContext({viewport:{width,height:1000}});await context.addInitScript(()=>{window.employeePrintCalls=0;window.print=()=>{window.employeePrintCalls++;};});const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));return page;};
@@ -53,7 +53,7 @@ async function choose(page,id,value){
    await page.goto(base+'/karyawan/slip?bulan=10&tahun=2026');await expect(page.locator('.employee-print-slip')).toHaveCount(1);await expect(page.locator('.employee-print-document')).toBeVisible();expect(await page.evaluate(()=>window.employeePrintCalls)).toBe(0);
    await page.getByRole('button',{name:'Cetak',exact:true}).click();expect(await page.evaluate(()=>window.employeePrintCalls)).toBe(1);
    if(i===1){await page.pdf({path:path.join(output,'employee-slip-a4.pdf'),preferCSSPageSize:true,printBackground:true});await downloadPdf(page,'employee-slip-download.pdf');await page.evaluate(()=>dispatchEvent(new Event('afterprint')));await expect(page.locator('.employee-print-document')).toBeVisible();}
-   await page.goto(base+'/karyawan/ubah-password');await expect(page.locator('.employee-notice')).toHaveCount(0);await expect(page.getByLabel('Kata sandi baru',{exact:true})).toHaveAttribute('minlength','8');
+   await page.goto(base+'/karyawan/ubah-password');await expect(page.locator('.employee-notice,.sidebar-note')).toHaveCount(0);await expect(page.getByLabel('Kata sandi baru',{exact:true})).toHaveAttribute('minlength','8');
    if(i===1){
     const token=await csrf(page);const post=(password,confirmation=password)=>page.request.post(base+'/karyawan/ubah-password',{headers:{'X-Requested-With':'XMLHttpRequest'},form:{_csrf:token,current_password:initial,new_password:password,password_confirmation:confirmation}});
     expect((await post('Baru202')).status()).toBe(422);expect((await post(initial)).status()).toBe(422);expect((await post('Baru2026','Berbeda8')).status()).toBe(422);
@@ -92,7 +92,7 @@ async function choose(page,id,value){
    await page.setViewportSize({width,height:1000});await page.goto(base+'/karyawan/slip?bulan=10&tahun=2026');await noOverflow(page);await page.screenshot({path:path.join(output,`preview-${width}.png`),fullPage:true});
    const layout=await page.locator('.employee-filters').evaluate(form=>Array.from(form.children,e=>({top:e.getBoundingClientRect().top,bottom:e.getBoundingClientRect().bottom})));if(width===1440)expect(Math.max(...layout.map(r=>r.bottom))-Math.min(...layout.map(r=>r.bottom))).toBeLessThan(2);
    await page.getByRole('button',{name:'Cetak',exact:true}).click();expect(await page.evaluate(()=>window.employeePrintCalls)).toBe(1);
-   if(width===360){await page.getByRole('button',{name:'Buka navigasi'}).click();await expect(page.locator('body')).toHaveClass(/sidebar-open/);await expect(page.locator('.sidebar').getByRole('link',{name:'Ubah Password',exact:true})).toBeVisible();await page.getByRole('button',{name:'Tutup navigasi',exact:true}).click();}
+   if(width===360){await page.getByRole('button',{name:'Buka navigasi'}).click();await expect(page.locator('body')).toHaveClass(/sidebar-open/);await expect(page.locator('.sidebar').getByRole('link',{name:'Ubah Password',exact:true})).toBeVisible();await page.getByRole('button',{name:'Tutup navigasi',exact:true}).click({position:{x:350,y:50}});await expect(page.locator('body')).not.toHaveClass(/sidebar-open/);}
    await page.goto(base+'/karyawan/slip?bulan=1&tahun=2027');await noOverflow(page);await page.screenshot({path:path.join(output,`preview-long-${width}.png`),fullPage:true});
    for(const amount of await page.locator('[data-slip-field]').all())expect(await amount.evaluate(e=>e.scrollWidth<=e.clientWidth+1)).toBe(true);
    await page.goto(base+'/karyawan/slip?bulan=2&tahun=2026');await noOverflow(page);await expect(page.locator('[data-print]')).toBeDisabled();await page.screenshot({path:path.join(output,`empty-${width}.png`),fullPage:true});
@@ -104,13 +104,14 @@ async function choose(page,id,value){
   const actor=state.accounts.find(a=>a.username==='DUMMY001'),row=admin.locator(`[data-account-id="${actor.id}"]`),modal=admin.locator('#employee-password-modal');
   const closePassword=async()=>{await modal.locator('.modal-footer').getByRole('button',{name:'Tutup',exact:true}).click();await expect(modal).toBeHidden();await expect(admin.locator('.modal-backdrop')).toHaveCount(0);await expect(admin.locator('#reveal-password-value')).toBeEmpty();};
   for(const width of [1440,390,360]){
-   await admin.setViewportSize({width,height:1000});await admin.evaluate(()=>scrollTo(0,0));await noOverflow(admin);await admin.screenshot({path:path.join(output,`accounts-${width}.png`),fullPage:true});
+   await admin.setViewportSize({width,height:1000});await admin.evaluate(()=>scrollTo(0,0));await noOverflow(admin);if(width<760)expect((await admin.locator('.employee-account-heading').boundingBox()).height).toBeLessThan(300);await admin.screenshot({path:path.join(output,`accounts-${width}.png`),fullPage:true});
    await row.getByRole('button',{name:'Lihat Password',exact:true}).click();await expect(admin.locator('#reveal-password-value')).toHaveText('Secret88');await expect(modal.locator('.modal-footer button')).toBeFocused();await noOverflow(admin);await admin.screenshot({path:path.join(output,`password-direct-${width}.png`)});await closePassword();
   }
   const adminToken=await csrf(admin),postReveal=(id=actor.id,csrfValue=adminToken)=>admin.request.post(base+'/akun-karyawan/password',{headers:{'X-Requested-With':'XMLHttpRequest'},form:{_csrf:csrfValue,id}});
   expect((await postReveal(actor.id,'bad')).status()).toBe(419);expect((await postReveal(1)).status()).toBe(404);expect((await admin.request.get(base+'/akun-karyawan/password')).status()).toBe(404);
   for(let i=0;i<6;i++)expect((await postReveal()).status()).toBe(200);
   fixture('corrupt');expect((await postReveal()).status()).toBe(503);fixture('restore');const revealed=await postReveal();expect(revealed.headers()['cache-control']).toContain('no-store');expect((await revealed.json()).password).toBe('Secret88');
+  await require('./employee-onboarding')({admin,base,newPage,fixture,output,start,extraServers,freePort,ready,login,later,changePassword,closeFeedback,noOverflow,csrf});
   const createdAccount=await admin.request.post(base+'/akun-karyawan',{headers:{'X-Requested-With':'XMLHttpRequest'},form:{_csrf:adminToken,action:'create',employee_id:state.new_employee_id}});expect(createdAccount.ok()).toBe(true);
   const leading=await newPage();await login(leading,base,'00042',initial);await expect(leading).toHaveURL(base+'/karyawan/slip');await later(leading);await expect(leading.locator('.employee-slip-placeholder')).toContainText('belum tersedia.');await expect(leading.locator('[data-print]')).toBeDisabled();
   const leadToken=await csrf(leading);await leading.request.post(base+'/logout',{headers:{'X-Requested-With':'XMLHttpRequest'},form:{_csrf:leadToken}});await login(leading,base,'00042',initial);await expect(leading.locator('#feedback-title')).toHaveText('Ubah Password Awal');await leading.getByRole('button',{name:'Ubah Sekarang',exact:true}).click();await expect(leading).toHaveURL(base+'/karyawan/ubah-password');await changePassword(leading,initial,'Nol00042');await expect(leading).toHaveURL(base+'/karyawan/slip');await closeFeedback(leading);await expect(leading.locator('#feedback-modal')).toBeHidden();
@@ -120,7 +121,7 @@ async function choose(page,id,value){
   fixture('invalidate_admin');expect((await postReveal()).status()).toBe(401);
   const unauth=await newPage();expect((await unauth.request.get(base+'/karyawan/slip/pdf?bulan=10&tahun=2026',{headers:{'X-Requested-With':'XMLHttpRequest'}})).status()).toBe(401);expect((await unauth.request.post(base+'/akun-karyawan/password',{headers:{'X-Requested-With':'XMLHttpRequest'},form:{_csrf:adminToken,id:actor.id}})).status()).toBe(401);
   const rootPort=await freePort(),rootOrigin=`http://127.0.0.1:${rootPort}`;rootServer=start(rootPort,root);await ready(rootOrigin);const rootPage=await newPage();await login(rootPage,rootOrigin,'DUMMY003',personal[2]);await expect(rootPage).toHaveURL(rootOrigin+'/karyawan/slip');await rootPage.goto(rootOrigin+'/karyawan/slip?bulan=10&tahun=2026&view=1');expect(await rootPage.evaluate(()=>window.employeePrintCalls)).toBe(0);await expect(rootPage.locator('.employee-print-document')).toBeVisible();await rootPage.getByRole('button',{name:'Cetak',exact:true}).click();expect(await rootPage.evaluate(()=>window.employeePrintCalls)).toBe(1);
-  const after=JSON.parse(fixture('status'));expect(after.reveal_audit).toBe(10);expect(errors).toEqual([]);
+  const after=JSON.parse(fixture('status'));expect(after.reveal_audit).toBe(11);expect(errors).toEqual([]);
   console.log('PASS: direct password reveal without reauthentication; CSRF/role/session checks; audit; encrypted-data failure; account activation; leading zeroes; reminder after relogin; root/subfolder print; no JS errors.');
- }finally{if(browser)await browser.close();for(const child of [server,rootServer]){if(child&&child.exitCode===null){const stopped=new Promise(r=>child.once('exit',r));child.kill();await stopped;}}if(created)fixture('cleanup');}
+ }finally{if(browser)await browser.close();for(const child of [server,rootServer,...extraServers]){if(child&&child.exitCode===null){const stopped=new Promise(r=>child.once('exit',r));child.kill();await stopped;}}if(created)fixture('cleanup');}
 })().catch(error=>{console.error(error);process.exitCode=1;});

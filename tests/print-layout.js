@@ -63,9 +63,35 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
       await page.goto(base + '/laporan?' + new URLSearchParams({ bulan: '10', tahun: '2026', view: '1', ...query }));
       await expect(page.getByRole('button', { name: 'Cetak / Simpan PDF', exact: true })).toBeVisible();
       await expect(page.locator('[data-print-timestamp]').first()).toContainText(/\d{2}-[A-Z][a-z]{2}-\d{4}, \d{2}:\d{2}:\d{2} WIB/);
-      await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
+      const isSlip = query.type.startsWith('slip_');
+      if (isSlip) {
+        await expect(page.locator('.admin-slip-preview')).toBeVisible();
+        await expect(page.locator('.admin-slip-print')).toBeHidden();
+        const preview = await page.locator('.legacy-slip').first().boundingBox();
+        expect(preview.width).toBeGreaterThan(preview.height);
+      }
+      await page.evaluate(() => {
+        window.printCalls = 0;
+        window.print = () => { window.printCalls++; window.dispatchEvent(new Event('beforeprint')); };
+      });
+      await page.getByRole('button', { name: 'Cetak / Simpan PDF', exact: true }).click();
+      expect(await page.evaluate(() => window.printCalls)).toBe(1);
       for (const stamp of await page.locator('[data-print-timestamp]').all()) await expect(stamp).toHaveText('31-Oct-2026, 16:30:25 WIB');
+      await page.emulateMedia({media:'print'});
+      if (isSlip) {
+        await expect(page.locator('.admin-slip-preview')).toBeHidden();
+        await expect(page.locator('.admin-slip-print')).toBeVisible();
+        const cell = page.locator('.employee-legacy-components tbody td').first();
+        // Chromium rounds layout sizes to fractions of a CSS pixel.
+        expect((await cell.boundingBox()).height).toBeGreaterThanOrEqual(6.5 * 96 / 25.4 - 0.1);
+      }
       await page.pdf({ path: path.join(output, filename + '.pdf'), preferCSSPageSize: true, printBackground: true, displayHeaderFooter: false, scale: 1 });
+      await page.emulateMedia({media:'screen'});
+      await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+      if (isSlip) {
+        await expect(page.locator('.admin-slip-preview')).toBeVisible();
+        await expect(page.locator('.admin-slip-print')).toBeHidden();
+      }
     };
     await report({ type: 'slip_karyawan', nip: fixture.reference.nip, bulan:'9' }, 'reference-slip');
     await page.screenshot({path:path.join(output,'reference-slip-screen.png'),fullPage:true});
@@ -74,10 +100,10 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     await expect(page.locator('.legacy-slip-accounting')).toContainText(fixture.officer);
     await expect(page.locator('.slip-identity')).toContainText(fixture.first.name);
     for (const [field, value] of Object.entries(fixture.first.numbers)) {
-      const amount = page.locator(`[data-slip-field="${field}"]`);
+      const amount = page.locator(`.legacy-slip [data-slip-field="${field}"]`);
       if (await amount.count()) await expect(amount).toHaveText(currency(value));
     }
-    for(const field of ['hefektif','hmasuk','lembur','infal','overtime'])await expect(page.locator(`[data-slip-quantity="${field}"]`)).toHaveText(fixture.first.numbers[field]);
+    for(const field of ['hefektif','hmasuk','lembur','infal','overtime'])await expect(page.locator(`.legacy-slip [data-slip-quantity="${field}"]`)).toHaveText(fixture.first.numbers[field]);
     await expect(page.locator('.legacy-slip-components tbody tr:nth-child(9) td').first()).toHaveText('Tunjangan Lain');
     await expect(page.locator('.legacy-slip-components tbody tr:nth-child(10) td').first()).toHaveText('Lebih Jam Mengajar');
     await page.screenshot({ path: path.join(output, 'slip-screen.png'), fullPage: true });
@@ -87,6 +113,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     await report({ type: 'slip_karyawan' }, 'all-slips');await expect(page.locator('.slip')).toHaveCount(2);
     await expect(page.locator('.slip').nth(1).locator('[data-slip-field=tbersih]')).toHaveText('-1.000');
     await report({ type: 'slip_bagian', bagian: 'PA001' }, 'department-slips');await expect(page.locator('.slip')).toHaveCount(1);
+    await report({ type: 'slip_bagian' }, 'all-department-slips');await expect(page.locator('.slip')).toHaveCount(2);
     for (const type of ['rekap_bagian', 'rekap_periode', 'rekap_periode_bagian', 'absensi', 'gapok']) {
       await report({ type, dari_bulan: '1', dari_tahun: '2010', sampai_bulan: '10', sampai_tahun: '2026' }, type);
       await expect(page.locator('.report-table')).toBeVisible();
@@ -106,7 +133,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     await page.goto(base + '/laporan?type=slip_karyawan&bulan=1&tahun=2099&view=1');
     await expect(page.getByRole('button', { name: 'Cetak / Simpan PDF', exact: true })).toHaveCount(0);
     expect(errors).toEqual([]);
-    console.log('PASS: CRUD Master, tujuh laporan, semua pintasan slip, nilai komponen, nama petugas, jam WIB, batch, data kosong dan pratinjau mobile.');
+    console.log('PASS: CRUD Master, tujuh laporan, kedua slip dan batch A4 portrait melalui tombol cetak; preview tetap landscape setelah cetak; spasi template karyawan; pintasan slip, nominal, petugas, jam WIB, data kosong dan mobile.');
   } finally {
     await browser?.close();
     if (server) { server.kill();if (server.exitCode === null) await new Promise(resolve => server.once('exit', resolve)); }

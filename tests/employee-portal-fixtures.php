@@ -32,8 +32,15 @@ try {
     switch($command){
         case 'create':
         case 'status':
-            echo json_encode(['current_month'=>(int)date('n'),'current_year'=>(int)date('Y'),'accounts'=>$db->query('SELECT id,username,role,employee_id,is_active,must_change_password,session_version FROM app_users ORDER BY id')->fetchAll(),'slips'=>$db->query('SELECT id,nip,bulan,tahun FROM penghasilan ORDER BY id')->fetchAll(),'new_employee_id'=>$db->query("SELECT id FROM karyawan WHERE nip='00042'")->fetchColumn(),'reveal_audit'=>(int)$db->query("SELECT COUNT(*) FROM audit_log WHERE action='view_employee_password'")->fetchColumn()],JSON_THROW_ON_ERROR);break;
+            $fingerprints=[];
+            foreach($db->query('SELECT * FROM app_users ORDER BY id')->fetchAll() as $account)$fingerprints[$account['id']]=hash('sha256',json_encode($account,JSON_THROW_ON_ERROR));
+            echo json_encode(['current_month'=>(int)date('n'),'current_year'=>(int)date('Y'),'accounts'=>$db->query('SELECT id,username,role,employee_id,is_active,must_change_password,session_version FROM app_users ORDER BY id')->fetchAll(),'account_fingerprints'=>$fingerprints,'employees'=>$db->query('SELECT * FROM karyawan ORDER BY id')->fetchAll(),'creation_audit'=>$db->query("SELECT action,entity,record_key FROM audit_log WHERE action='create_employee_account' OR (action='create' AND entity='karyawan') ORDER BY id")->fetchAll(),'slips'=>$db->query('SELECT id,nip,bulan,tahun FROM penghasilan ORDER BY id')->fetchAll(),'new_employee_id'=>$db->query("SELECT id FROM karyawan WHERE nip='00042'")->fetchColumn(),'reveal_audit'=>(int)$db->query("SELECT COUNT(*) FROM audit_log WHERE action='view_employee_password'")->fetchColumn()],JSON_THROW_ON_ERROR);break;
         case 'cleanup':$server->exec("DROP DATABASE `$database`");break;
+        case 'username_collision':
+            $db->prepare("INSERT INTO app_users(username,name,password_hash,role) VALUES('QACOLLISION','QA Collision',?,'superadmin')")->execute([password_hash('Qa!Synthetic-Collision',PASSWORD_DEFAULT)]);break;
+        case 'fail_account_audit':
+            $db->exec("CREATE TRIGGER qa_fail_account_audit BEFORE INSERT ON audit_log FOR EACH ROW BEGIN IF NEW.action='create_employee_account' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Synthetic account audit failure'; END IF; END");break;
+        case 'restore_account_audit':$db->exec('DROP TRIGGER qa_fail_account_audit');break;
         case 'invalidate_admin':$db->exec("UPDATE app_users SET session_version=session_version+1 WHERE username='qa_employee_admin'");break;
         case 'extremes':
             $numbers=array_fill_keys(array_keys(App\Domain\PayrollFields::numeric()),'0');

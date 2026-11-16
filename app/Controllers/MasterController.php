@@ -3,12 +3,12 @@ declare(strict_types=1);
 namespace App\Controllers;
 use App\Core\{Controller,Database};
 use App\Domain\MasterModules;
-use App\Services\PayrollRepository;
+use App\Services\{EmployeeAccounts,PayrollRepository};
 final class MasterController extends Controller {
     public function index(string $module): void {
         $meta=MasterModules::get($module);$table=$meta['table'];$db=Database::connection();$error=null;$edit=null;
         if($_SERVER['REQUEST_METHOD']==='POST') {
-            $this->validateCsrf();$id=max(0,(int)($_POST['id']??0));$action=$_POST['action']??'save';
+            $this->validateCsrf();$id=max(0,(int)($_POST['id']??0));$submittedId=$id;$action=$_POST['action']??'save';
             try {
                 $db->beginTransaction();
                 if($action==='delete') {
@@ -33,8 +33,21 @@ final class MasterController extends Controller {
                 $columns=array_keys($meta['fields']);$set=implode(',',array_map(static fn($f)=>"`$f`=?",$columns));$cols=implode('`,`',$columns);$marks=implode(',',array_fill(0,count($columns),'?'));
                 if($id){$before=$this->find($meta,$id);if(!$before)throw new \InvalidArgumentException('Data tidak ditemukan.');if($before[$meta['key']]!==$data[$meta['key']])throw new \InvalidArgumentException('Identitas data tidak dapat diganti saat mengubah data.');$q=$db->prepare("UPDATE `$table` SET $set WHERE id=?");$q->execute([...array_values($data),$id]);}
                 else {$before=null;$q=$db->prepare("INSERT INTO `$table` (`$cols`) VALUES($marks)");$q->execute(array_values($data));$id=(int)$db->lastInsertId();}
-                $this->audit($before?'update':'create',$module,(string)$id,$before,$data);$db->commit();flash('success','Data berhasil disimpan.');redirect('/master/'.$module);
-            } catch(\InvalidArgumentException|\PDOException $e){if($db->inTransaction())$db->rollBack();$error=$e instanceof \PDOException?($e->getCode()==='23000'?'Kode atau NIP sudah digunakan pada modul ini.':'Data belum berhasil disimpan. Periksa isian lalu coba kembali.'):$e->getMessage();$edit=['id'=>$id,...$_POST];}
+                $createdAccount=$module==='karyawan' && $before===null;
+                if($createdAccount){
+                    $accountId=(new EmployeeAccounts($db))->create($id);
+                    $this->audit('create_employee_account','app_users',(string)$accountId);
+                }
+                $this->audit($before?'update':'create',$module,(string)$id,$before,$data);$db->commit();
+                flash('success',$createdAccount?'Data karyawan dan akun berhasil dibuat. Login menggunakan NIP. Buka Akun Karyawan lalu Lihat Password untuk melihat password awal.':'Data berhasil disimpan.');redirect('/master/'.$module);
+            } catch(\Throwable $e){
+                if($db->inTransaction())$db->rollBack();
+                if($e instanceof \PDOException)$error=$e->getCode()==='23000'?'Kode atau NIP sudah digunakan pada modul ini.':'Data belum berhasil disimpan. Periksa isian lalu coba kembali.';
+                elseif($e instanceof \InvalidArgumentException)$error=$e->getMessage();
+                elseif($e instanceof \RuntimeException && $module==='karyawan' && $submittedId===0){http_response_code(503);$error='Data karyawan dan akun belum berhasil disimpan. Hubungi pengelola untuk memeriksa konfigurasi password karyawan.';}
+                else throw $e;
+                $edit=[...$_POST,'id'=>$submittedId];
+            }
         }
         $editId=filter_var($_GET['edit']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if(!$edit && $editId)$edit=$this->find($meta,$editId);
         $search=trim((string)($_GET['q']??''));$page=max(1,(int)($_GET['page']??1));$offset=($page-1)*25;

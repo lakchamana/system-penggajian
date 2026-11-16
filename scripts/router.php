@@ -8,4 +8,9 @@ $path=rawurldecode(parse_url($_SERVER['REQUEST_URI']??'/',PHP_URL_PATH)??'/');
 if($base!=='' && ($path===$base || str_starts_with($path,$base.'/')))$path=substr($path,strlen($base))?:'/';
 if(preg_match('~^/public/assets/[a-zA-Z0-9_./-]+\.(?:css|js|svg|woff2?)$~',$path) && !str_contains($path,'..') && is_file(dirname(__DIR__).$path))return false;
 if(preg_match('~^/(?:app|config|database|docs|scripts|storage|tests|node_modules|vendor)(?:/|$)|(?:^|/)\.|\.(?:env|json|lock|md|sql|log|ps1|py|dat|exe)$~i',$path)){http_response_code(403);exit('Forbidden');}
+// The fixed browser-test database always uses synthetic employee credentials.
+if(($_ENV['DB_DATABASE']??getenv('DB_DATABASE'))==='penggajian_test'){
+    $_ENV['EMPLOYEE_PASSWORD_KEY']=base64_encode(hash('sha256','employee-portal-synthetic-test-key',true));
+    $_ENV['EMPLOYEE_INITIAL_PASSWORD']='Mutiara@2026!';
+}
 require dirname(__DIR__).'/index.php';

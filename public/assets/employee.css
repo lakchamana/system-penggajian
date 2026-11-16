@@ -14,3 +14,6 @@
 }
 @media screen and (max-width:760px){.employee-slip-placeholder{margin-top:18px;width:100%;max-width:100%;padding:22px 16px;min-height:460px}}
 @media print{.employee-password-modal,.employee-slip-placeholder{display:none!important}}
+
+.employee-account-heading-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap}.employee-account-heading-actions .btn{min-height:48px}
+@media(max-width:760px){.employee-account-heading{flex-direction:column;align-items:stretch;gap:16px}.employee-account-heading>div{flex:0 1 auto;width:100%}.employee-account-heading-actions{width:100%;justify-content:space-between}.employee-account-heading-actions .btn{width:100%}}
