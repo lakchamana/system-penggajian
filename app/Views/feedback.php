@@ -2,7 +2,7 @@
 $feedbackEvents=[];
 foreach(($flashMessages??[]) as $entry)$feedbackEvents[]=['severity'=>match($entry['type']){'success'=>'success','warning'=>'warning',default=>'error'},'title'=>$entry['type']==='success'?'Berhasil disimpan':'Periksa kembali','message'=>$entry['message']];
 if(!empty($feedback))$feedbackEvents[]=$feedback;
-elseif(!empty($error))$feedbackEvents[]=['severity'=>'error','title'=>'Data belum dapat diproses','message'=>$error];
+elseif(!empty($error) && empty($feedbackErrorInline))$feedbackEvents[]=['severity'=>'error','title'=>'Data belum dapat diproses','message'=>$error];
 elseif(!empty($errorMessage))$feedbackEvents[]=['severity'=>'error','title'=>'Permintaan belum berhasil','message'=>$errorMessage];
 ?>
 <div class="modal feedback-modal" id="feedback-modal" tabindex="-1" aria-labelledby="feedback-title" aria-describedby="feedback-message" aria-hidden="true">

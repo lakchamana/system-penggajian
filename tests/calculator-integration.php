@@ -4,11 +4,12 @@ declare(strict_types=1);
 $_ENV['DB_DATABASE']='penggajian_test';
 require dirname(__DIR__).'/app/bootstrap.php';
 use App\Core\Database;
-use App\Services\PayrollCalculator;
+use App\Services\{ConsumptionPolicy,PayrollCalculator};
 use App\Domain\{PayrollFields,PayrollValidationException};
 if(($_ENV['DB_DATABASE']??'')!=='penggajian_test')throw new RuntimeException('Refusing non-test database.');
 $db=Database::connection();$db->beginTransaction();$checks=0;
 try{
+    $db->prepare('DELETE FROM app_settings WHERE setting_key=?')->execute([ConsumptionPolicy::KEY]);
     $db->prepare('INSERT INTO bagian(kd_bagian,nama_bagian) VALUES(?,?)')->execute(['TCALC','Kalkulasi sementara']);
     $nip='000000000000009';
     $db->prepare('INSERT INTO karyawan(nip,nama,kd_bagian,gapok,t_jabatan,t_harian,t_lembur) VALUES(?,?,?,?,?,?,?)')->execute([$nip,'Fixture kalkulasi','TCALC','1000000','200000','20001','7500']);
@@ -34,6 +35,20 @@ try{
     try{$calculator->evaluate($input,true);throw new RuntimeException('NULL consumption rate was silently treated as zero.');}catch(PayrollValidationException $e){if($e->issues[0]['code']!=='missing_required_rate')throw $e;$checks++;}
     if($calculator->evaluate([...$input,'hmasuk'=>'0'],true)['values']['t_konsumsi']!=='0')throw new RuntimeException('Unused NULL rate must not block zero activity.');$checks++;
     $db->prepare('UPDATE tunj_konsumsi SET jumlah=0 WHERE kd_bagian=?')->execute(['TCALC']);
+    ConsumptionPolicy::save($db, ['rate'=>'15000', 'departments'=>['TCALC']]);
+    $selected = $calculator->evaluate($input, true);
+    if ($selected['values']['t_konsumsi'] !== '270000' || $selected['snapshot']['sources']['tunj_konsumsi']['source'] !== ConsumptionPolicy::KEY) {
+        throw new RuntimeException('Shared consumption rate or its snapshot is incorrect.');
+    }
+    $checks++;
+    ConsumptionPolicy::save($db, ['rate'=>'15000', 'departments'=>[]]);
+    if ($calculator->evaluate($input, true)['values']['t_konsumsi'] !== '0') throw new RuntimeException('Unselected departments must receive zero consumption allowance.');
+    $checks++;
+    $preserved = $calculator->evaluate($before, false, ['before'=>$before])['values'];
+    if ($preserved['t_konsumsi'] !== '216000' || $preserved['tbersih'] !== $before['tbersih']) throw new RuntimeException('A policy change modified an existing transaction.');
+    $checks++;
+    if ($db->query("SELECT jumlah FROM tunj_konsumsi WHERE kd_bagian='TCALC'")->fetchColumn() !== '0') throw new RuntimeException('Legacy rates must be kept.');
+    $checks++;
     $db->prepare('DELETE FROM tunj_infal WHERE kd_bagian=?')->execute(['TCALC']);
     if($calculator->evaluate([...$input,'infal'=>'0'],true)['values']['uinfal']!=='0')throw new RuntimeException('Unused missing rate must not create an amount.');$checks++;
     $db->prepare('DELETE FROM p_lain WHERE nip=?')->execute([$nip]);

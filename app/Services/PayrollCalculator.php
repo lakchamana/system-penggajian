@@ -137,7 +137,18 @@ final class PayrollCalculator
         $daily = $masterRate($employee['t_harian'], 't_harian', 'Tarif harian karyawan', true);
         $overtime = $masterRate($employee['t_lembur'], 'ulembur', 'Tarif lembur karyawan', $positive($values['lembur']));
         $values['t_harian'] = bcmul($daily, (string)$values['hefektif'], 4);
-        $values['t_konsumsi'] = bcmul($rate('tunj_konsumsi', 'kd_bagian', $employee['kd_bagian'], 't_konsumsi', 'Tarif konsumsi', $positive($values['hmasuk'])), (string)($values['hmasuk'] ?? '0'), 4);
+        $consumption = ConsumptionPolicy::load($db);
+        if ($consumption === null) {
+            $consumptionRate = $rate('tunj_konsumsi', 'kd_bagian', $employee['kd_bagian'], 't_konsumsi', 'Tarif konsumsi', $positive($values['hmasuk']));
+        } else {
+            $selected = in_array($employee['kd_bagian'], $consumption['departments'], true);
+            $consumptionRate = $selected ? $consumption['rate'] : '0';
+            $sources['tunj_konsumsi'] = [
+                'source' => ConsumptionPolicy::KEY, 'exists' => $selected,
+                'kd_bagian' => $employee['kd_bagian'], 'jumlah' => $consumptionRate,
+            ];
+        }
+        $values['t_konsumsi'] = bcmul($consumptionRate, (string)($values['hmasuk'] ?? '0'), 4);
         $values['ulembur'] = bcmul($overtime, (string)($values['lembur'] ?? '0'), 4);
         $values['uinfal'] = bcmul($rate('tunj_infal', 'kd_bagian', $employee['kd_bagian'], 'uinfal', 'Tarif infal', $positive($values['infal'])), (string)($values['infal'] ?? '0'), 4);
         $values['uovertime'] = bcmul($rate('tunj_overtime', 'kd_bagian', $employee['kd_bagian'], 'uovertime', 'Tarif overtime', $positive($values['overtime'])), (string)($values['overtime'] ?? '0'), 4);

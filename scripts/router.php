@@ -1,5 +1,10 @@
 <?php
 // Only used by the isolated PHP test server. Apache uses .htaccess.
+if (PHP_SAPI !== 'cli-server' || !in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true)) {
+    http_response_code(403);
+    exit;
+}
+if (getenv('PAYROLL_PORTAL') === false) $_SERVER['PAYROLL_PORTAL'] = 'development';
 $root=str_replace('\\','/',dirname(__DIR__));
 $documentRoot=rtrim(str_replace('\\','/',realpath($_SERVER['DOCUMENT_ROOT']??dirname(__DIR__))?:dirname(__DIR__)),'/');
 $base=str_starts_with($root,$documentRoot.'/')?substr($root,strlen($documentRoot)):'';

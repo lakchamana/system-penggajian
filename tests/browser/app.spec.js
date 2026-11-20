@@ -72,7 +72,7 @@ test.describe.serial('Penggajian with restored source fixtures',()=>{
  });
  test('all legacy master modules and full migration archive',async({page})=>{
   test.setTimeout(60000);
-  const modules=['bagian','karyawan','tunj_harian','tunj_konsumsi','tunj_lembur','tunj_infal','tunj_overtime','tunj_jam','p_anak','p_bjbs','p_bank','p_lunak','p_lain'];
+  const modules=['bagian','karyawan','tunj_konsumsi','tunj_lembur','tunj_infal','tunj_overtime','tunj_jam','p_anak','p_bjbs','p_bank','p_lunak','p_lain'];
   for(const key of modules){
    const response=await page.goto('/master/'+key);expect(response.status()).toBe(200);await expect(page.locator('h1')).toBeVisible();
    const employees=['karyawan','tunj_jam','p_anak','p_bjbs','p_bank','p_lunak','p_lain'].includes(key);
@@ -85,16 +85,42 @@ test.describe.serial('Penggajian with restored source fixtures',()=>{
      expect(await choices.count()).toBeGreaterThan(0);await expect(choices.locator('.employee-option-name')).toHaveCount(await choices.count());await expect(choices.locator('.employee-option-nip')).toHaveCount(await choices.count());await expect(choices.locator('.employee-option-department')).toHaveCount(await choices.count());
      await expect(page.locator('#master-nip-options [data-select-value=""] .employee-option-nip')).toHaveCount(0);
     }
+   }else if(key==='tunj_konsumsi'){
+    await expect(page.getByRole('button',{name:'Simpan tarif konsumsi'})).toBeVisible();
    }else await expect(page.locator('#master-search')).not.toHaveAttribute('data-employee-dropdown');
   }
-  await page.goto('/migrasi');await expect(page.getByText('19 tabel terarsip')).toBeVisible();await expect(page.getByText('485 baris arsip',{exact:false})).toBeVisible();
+  expect((await page.goto('/master/tunj_harian')).status()).toBe(404);
+  await expect(page.getByRole('link',{name:'Data Harian',exact:true})).toHaveCount(0);
+  await page.goto('/migrasi');await expect(page.getByText('19 tabel terarsip')).toBeVisible();await expect(page.getByText('485 baris arsip',{exact:true})).toBeVisible();
   await page.goto('/arsip?table=dbo.Sheet1%24');await expect(page.locator('h1')).toContainText('Sheet1$');
  });
  test('master CRUD preserves leading zero NIP and validates dependencies',async({page})=>{
   await page.goto('/master/bagian?new=1');await page.getByLabel('Kode bagian').fill('TQA01');await page.getByLabel('Nama bagian').fill('Bagian pengujian');await page.getByRole('button',{name:'Simpan data'}).click();await expect(page.locator('.alert-success')).toContainText('disimpan');await closeFeedback(page);
   await page.goto('/master/karyawan?new=1');await page.locator('#master-nip').fill('000000000000001');await page.getByLabel('Nama lengkap').fill('Karyawan <Uji>');await page.locator('#master-kd_bagian-toggle').click();await page.locator('#master-kd_bagian-options [data-select-value="TQA01"]').click();await page.locator('#master-gapok').fill('1000000');await page.locator('#master-t_harian').fill('20000');await expect(page.locator('#master-gapok')).toHaveValue('1.000.000');await expect(page.locator('#master-t_harian')).toHaveValue('20.000');await page.getByRole('button',{name:'Simpan Karyawan & Akun'}).click();await expect(page.locator('tbody')).toContainText('000000000000001');await expect(page.locator('tbody')).toContainText('Karyawan <Uji>');expect(await page.locator('tbody script').count()).toBe(0);await closeFeedback(page);
-  await page.goto('/master/tunj_konsumsi?new=1');await page.locator('#master-kd_bagian-toggle').click();await page.locator('#master-kd_bagian-options [data-select-value="TQA01"]').click();await page.locator('#master-jumlah').fill('0');await page.getByRole('button',{name:'Simpan data'}).click();await closeFeedback(page);
-  await page.goto('/master/bagian?q=TQA01');await page.getByRole('button',{name:'Hapus TQA01',exact:true}).click();await expect(page.locator('#feedback-modal')).toBeVisible();await page.locator('#feedback-modal').getByRole('button',{name:'Ya, hapus',exact:true}).click();await expect(page.locator('#feedback-modal .feedback-message')).toContainText('masih digunakan');await closeFeedback(page);
+  await page.goto('/master/tunj_konsumsi');
+  await expect(page.getByRole('heading',{name:'Tarif yang sedang berlaku'})).toBeVisible();
+  await page.setViewportSize({width:360,height:840});
+  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.setViewportSize({width:1600,height:1000});
+  const rate=page.getByLabel('Tarif per hari masuk');
+  const qa=page.locator('input[name="departments[]"][value="TQA01"]');
+  const other=page.locator('input[name="departments[]"]:not([value="TQA01"])').first();
+  await rate.fill('12000');await qa.check();await other.check();
+  await page.getByRole('button',{name:'Simpan tarif konsumsi'}).click();await closeFeedback(page);
+  await expect(qa).toBeChecked();await expect(other).toBeChecked();
+  await expect(page.getByRole('heading',{name:'Tarif yang sedang berlaku'})).toHaveCount(0);
+  const csrf=await page.locator('meta[name="csrf-token"]').getAttribute('content');
+  const invalid=await page.request.post('/master/tunj_konsumsi',{
+   headers:{'X-Requested-With':'XMLHttpRequest'},
+   form:{_csrf:csrf,rate:'30000','departments[]':'ZZ!'},
+  });
+  expect(invalid.status()).toBe(422);
+  await page.reload();await expect(qa).toBeChecked();await expect(other).toBeChecked();
+  await expect(rate).toHaveValue('12.000');
+  await page.goto('/master/bagian?q=TQA01');await page.getByRole('button',{name:'Hapus TQA01',exact:true}).click();await expect(page.locator('#feedback-modal')).toBeVisible();await page.locator('#feedback-modal').getByRole('button',{name:'Ya, hapus',exact:true}).click();await expect(page.locator('#feedback-modal .feedback-message')).toContainText('masih menerima tunjangan konsumsi');await closeFeedback(page);
+  await page.goto('/master/tunj_konsumsi');await qa.uncheck();await other.uncheck();
+  await page.getByRole('button',{name:'Simpan tarif konsumsi'}).click();await closeFeedback(page);
+  await expect(page.locator('input[name="departments[]"]:checked')).toHaveCount(0);
  });
  test('payroll has one employee search, filters departments and never calculates search text',async({page})=>{
   const requests=[];page.on('request',request=>{if(request.url().endsWith('/api/hitung'))requests.push(request.postData());});

@@ -7,7 +7,7 @@ final class MasterModules {
             'bagian'=>['title'=>'Data Bagian','singular'=>'bagian','group'=>'master','key'=>'kd_bagian','table'=>'bagian','fields'=>['kd_bagian'=>'Kode bagian','nama_bagian'=>'Nama bagian']],
             'karyawan'=>['title'=>'Data Karyawan','singular'=>'karyawan','group'=>'master','key'=>'nip','table'=>'karyawan','fields'=>['nip'=>'NIP','nama'=>'Nama lengkap','kd_bagian'=>'Bagian','gapok'=>'Gaji pokok','t_jabatan'=>'Tunjangan jabatan','t_harian'=>'Tarif harian','t_lembur'=>'Tarif lembur']],
         ];
-        foreach (['harian'=>'Harian','konsumsi'=>'Konsumsi','lembur'=>'Lembur','infal'=>'Infal','overtime'=>'Overtime'] as $key=>$label) {
+        foreach (['lembur'=>'Lembur','infal'=>'Infal','overtime'=>'Overtime'] as $key=>$label) {
             $m['tunj_'.$key]=['title'=>'Tunjangan '.$label,'singular'=>'tarif tunjangan','group'=>'tunjangan','key'=>'kd_bagian','table'=>'tunj_'.$key,'fields'=>['kd_bagian'=>'Bagian','jumlah'=>'Nominal tarif']];
         }
         $m['tunj_jam']=['title'=>'Kelebihan Mengajar','singular'=>'kelebihan mengajar','group'=>'tunjangan','key'=>'nip','table'=>'tunj_jam','fields'=>['nip'=>'Karyawan','jumlah'=>'Kelebihan jam','tarip'=>'Tarif']];

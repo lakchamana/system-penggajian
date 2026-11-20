@@ -36,6 +36,8 @@ Salinan pribadi bersifat opsional dan tidak perlu digunakan untuk bekerja bersam
 
 ## Membuka aplikasi
 
+Untuk pengembangan di satu PC, gunakan [mode loopback](docs/UJI_PORTAL_LARAGON.md#pengembangan-di-satu-pc). Untuk uji dengan HP di Wi-Fi kantor, ikuti [panduan dua portal Laragon](docs/UJI_PORTAL_LARAGON.md). Apache perlu menetapkan `PAYROLL_PORTAL`; aplikasi menolak permintaan jika mode belum dipilih.
+
 1. Klik **Start All** pada Laragon untuk mengaktifkan Apache dan MySQL.
 2. Pada penggunaan pertama atau setelah folder proyek dipindahkan/diubah namanya, klik dua kali **`JALANKAN.bat`** di folder proyek. Launcher menghubungkan `www/system-penggajian` ke folder proyek saat ini dan membuka **http://localhost/system-penggajian/**. Pada penggunaan berikutnya cukup **Start All**, lalu buka alamat tersebut. Tidak perlu menyalin proyek ke folder `www` atau menjalankan server PHP terpisah.
 3. Jika database belum memiliki akun, buat nama, ID pengguna, email pemulihan, dan kata sandi minimal 12 karakter. Jika memakai backup SQL, masuk menggunakan akun yang ada dalam backup. Aplikasi tidak menyediakan kredensial bawaan.
@@ -78,16 +80,17 @@ Jalankan `node tests/password-reset.js` untuk menguji SMTP lokal, reset, kedaluw
 
 ### Portal slip gaji karyawan
 
-Portal membedakan **superadmin** dan **karyawan**. Akun pengelola lama tetap menjadi superadmin. Untuk memperbarui instalasi, cadangkan database, lalu jalankan:
+Portal membedakan **superadmin** dan **karyawan**. Akun pengelola lama tetap menjadi superadmin. Setelah menarik pembaruan portal, cadangkan database dan `.env` secara privat. Untuk instalasi yang belum memiliki akun karyawan, atur `EMPLOYEE_INITIAL_PASSWORD` di `.env` dengan kata sandi khusus instalasi tersebut. Jalankan perintah berikut dari terminal Laragon:
 
 ```powershell
 composer install
-php scripts/configure-employee-portal.php
 php scripts/migrate-auth.php
-php scripts/seed-employee-portal.php
+php scripts/configure-employee-portal.php
 ```
 
-Konfigurasi membuat `EMPLOYEE_PASSWORD_KEY` acak di `.env` lokal dan mempertahankan kunci yang sudah ada. Installer baru sudah memasang skema akun; konfigurasi kunci dan seeder tetap dijalankan secara eksplisit. Seeder hanya menambahkan tiga karyawan dummy berikut beserta slip Oktober 2026 pada bagian `DMY`:
+Skrip konfigurasi menyiapkan kunci enkripsi `EMPLOYEE_PASSWORD_KEY` di `.env` lokal. Tanpa kunci ini, formulir **Tambah Karyawan** tidak bisa menyimpan akun. Installer baru sudah memasang skema akun, tetapi langkah konfigurasi tetap diperlukan.
+
+Hanya di database uji, jalankan `php scripts/seed-employee-portal.php` jika membutuhkan tiga karyawan contoh berikut beserta slip Oktober 2026 pada bagian `DMY`:
 
 | Nama | Nomor induk / ID login | Gaji bersih contoh |
 |---|---|---:|
@@ -95,7 +98,7 @@ Konfigurasi membuat `EMPLOYEE_PASSWORD_KEY` acak di `.env` lokal dan mempertahan
 | Dummy Karyawan 2 | `DUMMY002` | Rp3.500.000 |
 | Dummy Karyawan 3 | `DUMMY003` | Rp4.000.000 |
 
-Password awal ketiganya adalah **`Mutiara@2026!`** dari `EMPLOYEE_INITIAL_PASSWORD` di konfigurasi lokal. Password karyawan menggunakan 8-72 karakter dan harus berbeda dari password saat ini maupun password awal. Pengulangan seeder mempertahankan password pribadi dan status akun; benturan identitas atau perubahan data dummy menghentikan proses tanpa menimpa data.
+Ketiga akun contoh memakai nilai `EMPLOYEE_INITIAL_PASSWORD` dari konfigurasi pengujian. Kata sandi karyawan menggunakan 8-72 karakter dan harus berbeda dari kata sandi saat ini maupun kata sandi awal. Pengulangan seeder mempertahankan kata sandi pribadi dan status akun. Benturan identitas atau perubahan data contoh menghentikan proses.
 
 Setelah login, karyawan langsung membuka **Slip Gaji Saya**, termasuk ketika masih memakai password awal. Popup pengingat muncul sekali per sesi login selama password awal belum diganti, dengan pilihan **Ubah Sekarang** atau **Nanti**. Menunda pengingat tetap mengizinkan akses slip. Setelah password diganti, popup berhenti muncul dan sesi lain dibatalkan.
 
@@ -124,6 +127,8 @@ Migrasi ini idempoten: menambahkan `calculation_version` dan `calculation_snapsh
 Baseline audit serta backup lokal berada di `storage/audit/` dan `storage/exports/`; keduanya diabaikan Git dan dilindungi dari akses HTTP. Jika baseline audit lokal sudah tersedia, jalankan `php scripts/verify-accounting-baseline.php` untuk membandingkan checksum kolom asli sebelum/sesudah pembaruan. Skrip tersebut membaca database dan menulis hasil verifikasi ke direktori audit privat.
 
 ### Launcher lokal Windows
+
+Atur mode `development` dan `Require local` untuk proyek ini di Apache sebelum memakai launcher. Untuk uji LAN, gunakan panduan dua portal di atas.
 
 Setelah `.env` dan database disiapkan, klik **Start All** di Laragon lalu klik dua kali `JALANKAN.bat`. Launcher memakai Apache Laragon di **http://localhost/system-penggajian/**. Folder proyek boleh tetap berada di Downloads dan boleh memiliki spasi pada namanya. Junction yang terputus akibat perubahan nama folder diperbaiki otomatis; folder biasa atau junction yang masih dipakai proyek lain tidak ditimpa. Launcher tidak mengimpor atau mereset database.
 
@@ -185,7 +190,7 @@ Halaman **Data & Migrasi** menyediakan inventaris tabel, status pemetaan, pencar
 ## Alur penggunaan
 
 - **Master:** kelola bagian dan karyawan. NIP berupa teks, termasuk nol di depan. Kode/NIP tidak diganti saat mengubah data. Penghapusan master yang masih digunakan ditolak.
-- **Tunjangan dan Potongan:** kelola komponen berbasis bagian atau NIP sesuai aplikasi lama.
+- **Tunjangan dan Potongan:** isi tarif harian di Data Karyawan. Di Master > Data Konsumsi, isi satu tarif per hari dan centang bagian penerima. Bagian yang tidak dipilih mendapat Rp0. Tarif konsumsi lama berlaku sampai pengaturan baru disimpan. Komponen lain tetap dikelola berdasarkan bagian atau NIP.
 - **Transaksi Penghasilan:** pilih periode, bagian, dan karyawan; masukkan hari efektif serta kehadiran. Mode **Hitung dari master saat ini** memakai tarif/master sekarang. Mode **Nilai komponen transaksi** mempertahankan komponen masukan; digunakan sebagai default saat membuka transaksi tersimpan.
 - **Muat komponen master** mengaktifkan perhitungan dari master. Jangan gunakan untuk transaksi historis kecuali memang hendak menghitung ulang dengan master saat ini.
 - **Slip & Laporan:** tujuh jenis keluaran, cakupan semua/tertentu, rentang lintas tahun, seluruh komponen, subtotal bagian, serta cetak atau simpan PDF melalui dialog browser. Cetak seluruh komponen dipisah menjadi tabel penghasilan, potongan, kehadiran, dan ringkasan agar tidak terpotong pada kertas landscape.

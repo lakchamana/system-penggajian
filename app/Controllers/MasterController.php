@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 use App\Core\{Controller,Database};
 use App\Domain\MasterModules;
-use App\Services\{EmployeeAccounts,PayrollRepository};
+use App\Services\{ConsumptionPolicy,EmployeeAccounts,PayrollRepository};
 final class MasterController extends Controller {
     public function index(string $module): void {
         $meta=MasterModules::get($module);$table=$meta['table'];$db=Database::connection();$error=null;$edit=null;
@@ -14,6 +14,10 @@ final class MasterController extends Controller {
                 if($action==='delete') {
                     $before=$this->find($meta,$id);if(!$before)throw new \InvalidArgumentException('Data tidak ditemukan.');
                     if($module==='bagian') {
+                        $consumption = ConsumptionPolicy::load($db, true);
+                        if (in_array($before['kd_bagian'], $consumption['departments'] ?? [], true)) {
+                            throw new \InvalidArgumentException('Bagian ini masih menerima tunjangan konsumsi. Hapus pilihannya di Data Konsumsi dulu.');
+                        }
                         foreach(['karyawan','tunj_harian','tunj_konsumsi','tunj_lembur','tunj_infal','tunj_overtime'] as $t){$q=$db->prepare("SELECT COUNT(*) FROM `$t` WHERE kd_bagian=?");$q->execute([$before['kd_bagian']]);if($q->fetchColumn())throw new \InvalidArgumentException('Bagian masih digunakan. Perbarui data terkait sebelum menghapus.');}
                     } elseif($module==='karyawan') {
                         $q=$db->prepare('SELECT id FROM app_users WHERE employee_id=?');$q->execute([$id]);if($q->fetchColumn())throw new \InvalidArgumentException('Karyawan masih terhubung ke akun. Nonaktifkan akses akun; riwayat karyawan tetap disimpan.');
@@ -39,12 +43,16 @@ final class MasterController extends Controller {
                     $this->audit('create_employee_account','app_users',(string)$accountId);
                 }
                 $this->audit($before?'update':'create',$module,(string)$id,$before,$data);$db->commit();
-                flash('success',$createdAccount?'Data karyawan dan akun berhasil dibuat. Login menggunakan NIP. Buka Akun Karyawan lalu Lihat Password untuk melihat password awal.':'Data berhasil disimpan.');redirect('/master/'.$module);
+                flash('success',$createdAccount?'Karyawan dan akun sudah dibuat. Lihat kata sandi awal di menu Akun Karyawan.':'Data berhasil disimpan.');redirect('/master/'.$module);
             } catch(\Throwable $e){
                 if($db->inTransaction())$db->rollBack();
                 if($e instanceof \PDOException)$error=$e->getCode()==='23000'?'Kode atau NIP sudah digunakan pada modul ini.':'Data belum berhasil disimpan. Periksa isian lalu coba kembali.';
                 elseif($e instanceof \InvalidArgumentException)$error=$e->getMessage();
-                elseif($e instanceof \RuntimeException && $module==='karyawan' && $submittedId===0){http_response_code(503);$error='Data karyawan dan akun belum berhasil disimpan. Hubungi pengelola untuk memeriksa konfigurasi password karyawan.';}
+                elseif ($e instanceof \RuntimeException && $module === 'karyawan' && $submittedId === 0 && $action === 'save') {
+                    error_log(sprintf('Pembuatan akun karyawan gagal di %s:%d. Periksa konfigurasi kata sandi dan enkripsi portal.', basename($e->getFile()), $e->getLine()));
+                    http_response_code(503);
+                    $error = 'Karyawan belum tersimpan. Hubungi pengelola aplikasi.';
+                }
                 else throw $e;
                 $edit=[...$_POST,'id'=>$submittedId];
             }
@@ -67,5 +75,61 @@ final class MasterController extends Controller {
         $searchOptions=$db->query("SELECT m.`{$meta['key']}` AS code,$suggestionName AS name $suggestionDepartment FROM `$table` m $suggestionJoin ORDER BY $suggestionName,m.`{$meta['key']}`")->fetchAll();
         $this->view('master',['title'=>$meta['title'],'section'=>ucfirst($meta['group']),'module'=>$module,'meta'=>$meta,'rows'=>$q->fetchAll(),'total'=>$total,'page'=>$page,'search'=>$search,'edit'=>$edit,'error'=>$error,'searchOptions'=>$searchOptions,'showForm'=>$edit || isset($_GET['new']) || $error,'departments'=>$db->query('SELECT kd_bagian,nama_bagian FROM bagian ORDER BY kd_bagian')->fetchAll(),'employees'=>(new PayrollRepository())->employeeOptions()]);
     }
+    public function consumption(): void
+    {
+        $db = Database::connection();
+        $departmentQuery = 'SELECT kd_bagian,nama_bagian FROM bagian ORDER BY kd_bagian';
+        $error = null;
+        $submitted = null;
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $this->validateCsrf();
+            $rate = $_POST['rate'] ?? null;
+            $selected = $_POST['departments'] ?? [];
+            $submitted = [
+                'rate' => is_string($rate) ? $rate : '',
+                'departments' => array_values(array_filter((array)$selected, 'is_string')),
+            ];
+            $db->beginTransaction();
+            try {
+                $codes = $db->query($departmentQuery . ' FOR UPDATE')->fetchAll(\PDO::FETCH_COLUMN);
+                if (!is_string($rate) || !preg_match('/^[0-9]{1,18}$/D', $rate)) {
+                    throw new \InvalidArgumentException('Masukkan tarif konsumsi dalam rupiah, maksimal 18 digit.');
+                }
+                if (!is_array($selected) || array_filter($selected, 'is_string') !== $selected || array_diff($selected, $codes)) {
+                    throw new \InvalidArgumentException('Pilih bagian yang tersedia di daftar.');
+                }
+                $next = [
+                    'rate' => bcadd($rate, '0', 0),
+                    'departments' => array_values(array_intersect($codes, $selected)),
+                ];
+                $previous = ConsumptionPolicy::load($db, true);
+                if ($previous !== $next) {
+                    ConsumptionPolicy::save($db, $next);
+                    $this->audit('update', 'app_settings', ConsumptionPolicy::KEY, $previous, $next);
+                }
+                $db->commit();
+                flash('success', 'Tarif konsumsi sudah disimpan.');
+                redirect('/master/tunj_konsumsi');
+            } catch (\Throwable $exception) {
+                if ($db->inTransaction()) $db->rollBack();
+                if (!$exception instanceof \InvalidArgumentException) throw $exception;
+                $error = $exception->getMessage();
+            }
+        }
+
+        $policy = ConsumptionPolicy::load($db);
+        $this->view('consumption', [
+            'title' => 'Data Konsumsi',
+            'section' => 'Master',
+            'error' => $error,
+            'form' => $submitted ?? $policy ?? ['rate' => '', 'departments' => []],
+            'departments' => $db->query($departmentQuery)->fetchAll(),
+            'legacyRates' => $policy === null
+                ? $db->query('SELECT t.kd_bagian,b.nama_bagian,t.jumlah FROM tunj_konsumsi t LEFT JOIN bagian b ON b.kd_bagian=t.kd_bagian ORDER BY t.kd_bagian')->fetchAll()
+                : [],
+        ]);
+    }
+
     private function find(array $meta,int $id): array|false {if(!isset($meta['table']))throw new \InvalidArgumentException('Modul tidak valid.');$table=$meta['table'];$q=Database::connection()->prepare("SELECT * FROM `$table` WHERE id=? FOR UPDATE");$q->execute([$id]);return $q->fetch();}
 }

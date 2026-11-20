@@ -47,14 +47,14 @@ module.exports = async function verifyCleanHeadings(page, base, fixture, output)
     await expect(page.locator('.page-heading h1')).toHaveText('Slip per Karyawan.');
     await expect(sidebar.locator('a[aria-current=page]')).toHaveText('Slip Gaji');
   }
-  const modules = ['bagian', 'karyawan', 'tunj_harian', 'tunj_konsumsi', 'tunj_lembur', 'tunj_infal', 'tunj_overtime', 'tunj_jam', 'p_anak', 'p_bjbs', 'p_bank', 'p_lunak', 'p_lain'];
+  const modules = ['bagian', 'karyawan', 'tunj_konsumsi', 'tunj_lembur', 'tunj_infal', 'tunj_overtime', 'tunj_jam', 'p_anak', 'p_bjbs', 'p_bank', 'p_lunak', 'p_lain'];
   for (const module of modules) {
     await page.goto(base + '/master/' + module);
     await checkHeading();
     await expect(page.locator('.page-heading p')).toHaveCount(0);
-    await expect(page.locator('.page-heading > a')).toBeVisible();
-    if (module === 'tunj_harian') await expect(page.locator('.alert-info')).toContainText('master karyawan');
-    if (module === 'p_lain') await expect(page.locator('.alert-info')).toContainText('historis');
+    if (module === 'tunj_konsumsi') await expect(page.getByRole('button', { name: 'Simpan tarif konsumsi' })).toBeVisible();
+    else await expect(page.locator('.page-heading > a')).toBeVisible();
+    if (module === 'p_lain') await expect(page.getByText('Jumlah ini dipakai sekali sebagai Potongan Lain-lain saat menghitung gaji baru.')).toBeVisible();
   }
   for (const route of ['/', '/transaksi', '/transaksi/form', '/transaksi/form?id=' + fixture.first.id, '/profil', '/migrasi', '/arsip?table=qa_print_archive']) {
     await page.goto(base + route);
@@ -62,7 +62,7 @@ module.exports = async function verifyCleanHeadings(page, base, fixture, output)
     if (route.startsWith('/arsip')) await expect(page.locator('.page-heading')).toContainText('Arsip hanya baca');
     else await expect(page.locator('.page-heading p')).toHaveCount(0);
   }
-  await expect(page.locator('.sidebar-note')).toContainText('Ruang kerja Anda');
+  await expect(page.locator('.sidebar-note')).toHaveCount(0);
   await expect(page.locator('.page-footer')).toContainText('Dikelola dengan cermat');
   for (const width of [1600, 1024, 390, 320]) {
     await page.setViewportSize({ width, height: 1000 });

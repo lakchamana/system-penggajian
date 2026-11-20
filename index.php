@@ -5,6 +5,14 @@ use App\Core\Database;
 use App\Controllers\{AuthController,DashboardController,MasterController,PayrollController,ReportController,EmployeeController,EmployeeAccountController};
 $path=app_request_path();
 $method=$_SERVER['REQUEST_METHOD']??'GET';
+$portal = payroll_portal_mode();
+if ($portal === null || ($portal === 'employee' && !in_array($path, [
+    '/', '/login', '/logout', '/karyawan/ubah-password',
+    '/karyawan/slip', '/karyawan/slip/pdf', '/karyawan/slip/detail',
+], true))) {
+    http_response_code(404);
+    exit;
+}
 if(!in_array($method,['GET','POST'],true)){http_response_code(405);header('Allow: GET, POST');exit;}
 if($path==='/setup'){(new AuthController())->setup();exit;}
 if($path==='/login'){(new AuthController())->login();exit;}
@@ -12,7 +20,7 @@ if($path==='/forgot-password'){(new AuthController())->forgotPassword();exit;}
 if($path==='/reset-password'){(new AuthController())->resetPassword();exit;}
 if(empty($_SESSION['user'])){if(expects_json())json_response(['error'=>'Silakan masuk kembali.'],401);redirect('/login');}
 $q=Database::connection()->prepare('SELECT u.*,k.nip,k.nama AS employee_name FROM app_users u LEFT JOIN karyawan k ON k.id=u.employee_id WHERE u.id=?');$q->execute([$_SESSION['user']['id']]);$user=$q->fetch();
-if(!$user || !$user['is_active'] || !in_array($user['role'],['superadmin','karyawan'],true) || (int)$user['session_version']!==(int)$_SESSION['user']['session_version'] || ($user['role']==='karyawan' && ($user['nip']===null || $user['username']!==$user['nip']))){$_SESSION=[];if(expects_json())json_response(['error'=>'Sesi berakhir. Silakan masuk kembali.'],401);redirect('/login');}
+if(!$user || !$user['is_active'] || !payroll_portal_allows_role($user['role']) || (int)$user['session_version']!==(int)$_SESSION['user']['session_version'] || ($user['role']==='karyawan' && ($user['nip']===null || $user['username']!==$user['nip']))){$_SESSION=[];if(expects_json())json_response(['error'=>'Sesi berakhir. Silakan masuk kembali.'],401);redirect('/login');}
 $_SESSION['user']=account_session($user);
 unset($user);
 if($path==='/logout' && $method==='POST'){(new AuthController())->logout();exit;}
@@ -31,6 +39,7 @@ if($path==='/profil'){(new AuthController())->profile();exit;}
 if($path==='/'){(new DashboardController())->index();exit;}
 if($path==='/migrasi'){(new DashboardController())->migration();exit;}
 if($path==='/arsip'){(new DashboardController())->archive();exit;}
+if($path==='/master/tunj_konsumsi'){(new MasterController())->consumption();exit;}
 if(preg_match('~^/master/([a-z_]+)$~',$path,$m) && isset(App\Domain\MasterModules::all()[$m[1]])){(new MasterController())->index($m[1]);exit;}
 if($path==='/transaksi'){(new PayrollController())->index();exit;}
 if($path==='/transaksi/form'){(new PayrollController())->form();exit;}

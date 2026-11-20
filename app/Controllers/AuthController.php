@@ -29,7 +29,7 @@ final class AuthController extends Controller {
     }
     public function login(): void {
         $db=Database::connection();
-        if (!(int)$db->query('SELECT COUNT(*) FROM app_users')->fetchColumn()) redirect('/setup');
+        if (payroll_portal_allows_role('superadmin') && !(int)$db->query('SELECT COUNT(*) FROM app_users')->fetchColumn()) redirect('/setup');
         if (!empty($_SESSION['user'])) redirect(user_home());
         $error=null;
         if ($_SERVER['REQUEST_METHOD']==='POST') {
@@ -39,7 +39,7 @@ final class AuthController extends Controller {
             if ($attempt && (int)$attempt['failures']>=8 && strtotime($attempt['last_attempt'])>time()-900) $error='Terlalu banyak percobaan masuk. Coba kembali dalam 15 menit.';
             else {
                 $q=$db->prepare('SELECT u.*,k.nip,k.nama AS employee_name FROM app_users u LEFT JOIN karyawan k ON k.id=u.employee_id WHERE u.username=?'); $q->execute([$username]); $user=$q->fetch();
-                if ($user && $user['is_active'] && in_array($user['role'],['superadmin','karyawan'],true) && ($user['role']!=='karyawan' || ($user['nip']!==null && $user['username']===$user['nip'])) && password_verify((string)($_POST['password']??''),$user['password_hash'])) {
+                if ($user && $user['is_active'] && payroll_portal_allows_role($user['role']) && ($user['role']!=='karyawan' || ($user['nip']!==null && $user['username']===$user['nip'])) && password_verify((string)($_POST['password']??''),$user['password_hash'])) {
                     session_regenerate_id(true); $_SESSION['user']=account_session($user); $_SESSION['csrf']=bin2hex(random_bytes(32));
                     unset($_SESSION['employee_password_reminder_shown']);
                     $db->prepare('DELETE FROM login_attempts WHERE fingerprint=?')->execute([$fingerprint]); $this->audit('login','app_users',(string)$user['id']); redirect(user_home());

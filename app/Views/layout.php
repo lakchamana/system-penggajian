@@ -5,7 +5,6 @@ $isEmployeeSlip=$isEmployee && $currentPath==='/karyawan/slip';
 $isPortraitSlipReport=$currentPath==='/laporan' && ($isSlip??false);
 $masterLinks=[
  'bagian'=>'Data Bagian',
- 'tunj_harian'=>'Data Harian',
  'tunj_konsumsi'=>'Data Konsumsi',
  'tunj_infal'=>'Data Infal',
  'tunj_overtime'=>'Data Overtime',
@@ -68,7 +67,7 @@ $flashMessages=$_SESSION['flash']??[];unset($_SESSION['flash']);
  <a class="nav-item-link <?=$currentPath==='/akun-karyawan'?'active':''?>" href="<?=e(url('akun-karyawan'))?>" <?=$currentPath==='/akun-karyawan'?'aria-current="page"':''?>><span class="nav-icon"><?=icon('users')?></span><span>Akun Karyawan</span></a>
  <a class="nav-item-link <?=$currentPath==='/migrasi'||$currentPath==='/arsip'?'active':''?>" href="<?=e(url('migrasi'))?>"><span class="nav-icon"><?=icon('database')?></span><span>Data & Migrasi</span></a>
  <a class="nav-item-link <?=$currentPath==='/profil'?'active':''?>" href="<?=e(url('profil'))?>"><span class="nav-icon"><?=icon('user')?></span><span>Profil Saya</span></a><?php endif;?></nav>
- <div class="sidebar-bottom"><?php if(!$isEmployee):?><div class="sidebar-note"><span class="note-icon"><?=icon('shield')?></span><strong><?=$isEmployee?'Penghasilan Anda,<br>mudah dilihat.':'Ruang kerja Anda,<br>lebih tertata.'?></strong><p><?=$isEmployee?'Lihat rincian slip dan<br>kelola password akun Anda.':'Kelola penghasilan dengan<br>mudah dan transparan.'?></p><a href="<?=e(url($isEmployee?'karyawan/ubah-password':'transaksi/form'))?>" class="btn btn-primary sidebar-start"><span><?=$isEmployee?'Ubah Password':'Mulai Transaksi'?></span><?=icon('arrow-right')?></a></div><?php endif;?><form action="<?=e(url('logout'))?>" method="post"><?=csrf_field()?><button class="logout-button" type="submit"><?=icon('logout')?> Keluar akun</button></form><div class="sidebar-version">Mutiara Hikmah <span>v1.0</span></div></div>
+ <div class="sidebar-bottom"><form action="<?=e(url('logout'))?>" method="post"><?=csrf_field()?><button class="logout-button" type="submit"><?=icon('logout')?> Keluar akun</button></form><div class="sidebar-version">Mutiara Hikmah <span>v1.0</span></div></div>
 </aside>
 <div class="sidebar-resizer" id="sidebar-resizer" role="separator" tabindex="0" aria-label="Atur lebar sidebar" aria-controls="sidebar" aria-orientation="vertical" aria-valuemin="260" aria-valuemax="400" aria-valuenow="260" aria-valuetext="260 piksel" title="Geser untuk mengatur lebar sidebar. Gunakan panah kiri/kanan, atau klik dua kali untuk ukuran awal." hidden><span aria-hidden="true"></span></div>
 <div class="app-main"><header class="topbar"><div class="breadcrumb-area"><button class="mobile-menu icon-button" data-sidebar-toggle aria-label="Buka navigasi" aria-controls="sidebar" aria-expanded="false"><?=icon('menu')?></button><span>Ruang kerja</span><?=icon('chevron')?><strong><?=e($navigationSection)?></strong></div><div class="topbar-right"><span class="local-badge"><span></span> Aplikasi lokal</span><span class="topbar-divider"></span><div class="user-chip"><span class="avatar"><?=e(mb_strtoupper(mb_substr($_SESSION['user']['name']??'P',0,1)))?></span><span><strong><?=e($_SESSION['user']['name']??'Petugas')?></strong><small><?=$isEmployee?'Karyawan':'Superadmin'?></small></span></div></div></header>

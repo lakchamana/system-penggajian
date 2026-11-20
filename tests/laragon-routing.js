@@ -8,7 +8,7 @@ const fs = require('node:fs');
 const root = path.resolve(__dirname, '..');
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const masterItems = [
-  ['bagian', 'Data Bagian'], ['tunj_harian', 'Data Harian'],
+  ['bagian', 'Data Bagian'],
   ['tunj_konsumsi', 'Data Konsumsi'], ['tunj_infal', 'Data Infal'],
   ['tunj_overtime', 'Data Overtime'], ['tunj_jam', 'Data Kelebihan Mengajar'],
   ['p_anak', 'Potongan Anak'], ['p_bjbs', 'Potongan BPJS'],

@@ -22,7 +22,13 @@ document.addEventListener('DOMContentLoaded', function () {
   dialog.dataset.severity=event.severity||'info';dialog.setAttribute('role',event.severity==='error'?'alertdialog':'dialog');
   title.textContent=event.title||'Pemberitahuan';message.textContent=event.message||'Periksa rincian berikut.';
   list.replaceChildren();
-  for(const issue of event.issues||[]){const li=document.createElement('li');li.textContent=issue.message;list.append(li);}
+  const shownMessages=new Set([message.textContent.trim()]);
+  for(const issue of event.issues||[]){
+   const text=typeof issue.message==='string'?issue.message.trim():'';
+   if(!text||shownMessages.has(text))continue;
+   shownMessages.add(text);
+   const li=document.createElement('li');li.textContent=text;list.append(li);
+  }
   list.hidden=!list.children.length;cancel.hidden=!event.confirmation;cancel.textContent=event.cancelLabel||'Kembali Periksa';
   accept.textContent=event.primaryLabel||(event.confirmation?'Lanjutkan Simpan':event.severity==='error'?'Perbaiki data':'Mengerti');
   accept.onclick=()=>{accepted=true;modal.hide();};
@@ -42,10 +48,10 @@ document.addEventListener('DOMContentLoaded', function () {
  window.payrollFeedback={show:showFeedback};
  const fail=async(error,fallback)=>{
   const status=error.status;
-  return showFeedback({severity:'error',title:status===401||status===419?'Sesi perlu diperbarui':'Data belum dapat diproses',message:error.error||(error instanceof TypeError?fallback:error.message)||fallback,issues:error.issues||[]});
+  return showFeedback({severity:'error',title:status===401||status===419?'Sesi perlu diperbarui':status===503?'Gagal menyimpan':'Data belum dapat diproses',message:error.error||(error instanceof TypeError?fallback:error.message)||fallback,issues:error.issues||[],primaryLabel:status===503?'Tutup':undefined});
  };
  const readResponse=async response=>{
-  try{return await response.json();}catch{throw {status:response.status,error:'Respons server belum dapat dibaca. Input tetap tersedia; periksa status transaksi sebelum mencoba lagi.'};}
+  try{return await response.json();}catch{throw {status:response.status,error:'Belum bisa membaca hasil dari server. Periksa data sebelum mencoba lagi.'};}
  };
  const headers={'Accept':'application/json','X-Requested-With':'XMLHttpRequest'};
  const submitting=new WeakSet();
@@ -60,7 +66,11 @@ document.addEventListener('DOMContentLoaded', function () {
     if(!response.ok||data.error)throw {...data,status:response.status};
     if(data.redirect){location.assign(data.redirect);return;}
     await showFeedback({severity:'success',title:'Berhasil',message:data.message||'Perubahan berhasil disimpan.'});
-   }catch(error){await fail(error,'Penyimpanan belum dapat dipastikan. Input tetap tersedia; periksa data sebelum mencoba lagi.');}
+   }catch(error){
+    form.inert=false;
+    event.submitter?.focus({preventScroll:true});
+    await fail(error,'Belum bisa memastikan data tersimpan. Periksa daftar sebelum mencoba lagi.');
+   }
    finally{form.inert=false;submitting.delete(form);}
   });
  });
