@@ -36,8 +36,6 @@ Salinan pribadi bersifat opsional dan tidak perlu digunakan untuk bekerja bersam
 
 ## Membuka aplikasi
 
-Untuk pengembangan di satu PC, gunakan [mode loopback](docs/UJI_PORTAL_LARAGON.md#pengembangan-di-satu-pc). Untuk uji dengan HP di Wi-Fi kantor, ikuti [panduan dua portal Laragon](docs/UJI_PORTAL_LARAGON.md). Apache perlu menetapkan `PAYROLL_PORTAL`; aplikasi menolak permintaan jika mode belum dipilih.
-
 1. Klik **Start All** pada Laragon untuk mengaktifkan Apache dan MySQL.
 2. Pada penggunaan pertama atau setelah folder proyek dipindahkan/diubah namanya, klik dua kali **`JALANKAN.bat`** di folder proyek. Launcher menghubungkan `www/system-penggajian` ke folder proyek saat ini dan membuka **http://localhost/system-penggajian/**. Pada penggunaan berikutnya cukup **Start All**, lalu buka alamat tersebut. Tidak perlu menyalin proyek ke folder `www` atau menjalankan server PHP terpisah.
 3. Jika database belum memiliki akun, buat nama, ID pengguna, email pemulihan, dan kata sandi minimal 12 karakter. Jika memakai backup SQL, masuk menggunakan akun yang ada dalam backup. Aplikasi tidak menyediakan kredensial bawaan.
@@ -127,8 +125,6 @@ Migrasi ini idempoten: menambahkan `calculation_version` dan `calculation_snapsh
 Baseline audit serta backup lokal berada di `storage/audit/` dan `storage/exports/`; keduanya diabaikan Git dan dilindungi dari akses HTTP. Jika baseline audit lokal sudah tersedia, jalankan `php scripts/verify-accounting-baseline.php` untuk membandingkan checksum kolom asli sebelum/sesudah pembaruan. Skrip tersebut membaca database dan menulis hasil verifikasi ke direktori audit privat.
 
 ### Launcher lokal Windows
-
-Atur mode `development` dan `Require local` untuk proyek ini di Apache sebelum memakai launcher. Untuk uji LAN, gunakan panduan dua portal di atas.
 
 Setelah `.env` dan database disiapkan, klik **Start All** di Laragon lalu klik dua kali `JALANKAN.bat`. Launcher memakai Apache Laragon di **http://localhost/system-penggajian/**. Folder proyek boleh tetap berada di Downloads dan boleh memiliki spasi pada namanya. Junction yang terputus akibat perubahan nama folder diperbaiki otomatis; folder biasa atau junction yang masih dipakai proyek lain tidak ditimpa. Launcher tidak mengimpor atau mereset database.
 

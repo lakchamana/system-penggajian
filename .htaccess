@@ -4,8 +4,6 @@ DirectoryIndex index.php
 RewriteEngine On
 RewriteRule ^(?:app|config|database|docs|scripts|storage|tests|node_modules|vendor)(?:/|$) - [F,L,NC]
 RewriteRule (^|/)\. - [F,L]
-RewriteCond %{REQUEST_FILENAME} -f
-RewriteRule !^(?:index\.php|public/assets/[A-Za-z0-9_./-]+\.(?:css|js|svg|woff2?))$ - [F,L]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^ index.php [QSA,L]
 </IfModule>

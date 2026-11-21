@@ -59,8 +59,7 @@ $submit = match ($mode) { 'setup' => 'Buat akun pengelola', 'forgot' => 'Kirim t
         <?php endif;?>
         <p class="auth-help"><?=icon('info')?>
             <?php if($setup):?>Simpan ID pengguna, email, dan kata sandi Anda dengan baik.
-            <?php elseif($mode==='login' && payroll_portal_allows_role('superadmin')):?><a href="<?=e(url('forgot-password'))?>">Lupa kata sandi?</a>
-            <?php elseif($mode==='login'):?>Lupa kata sandi? Hubungi petugas penggajian.
+            <?php elseif($mode==='login'):?><a href="<?=e(url('forgot-password'))?>">Lupa kata sandi?</a>
             <?php elseif($mode==='reset' && !$valid):?><a href="<?=e(url('forgot-password'))?>">Minta tautan baru</a>
             <?php else:?><a href="<?=e(url('login'))?>">Kembali ke halaman masuk</a><?php endif;?>
         </p>

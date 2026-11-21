@@ -1,22 +1,6 @@
 <?php
 declare(strict_types=1);
 function e(mixed $value): string { return htmlspecialchars((string) ($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
-function payroll_portal_mode(): ?string {
-    $mode = $_SERVER['PAYROLL_PORTAL'] ?? getenv('PAYROLL_PORTAL');
-    if ($mode === 'employee' || $mode === 'admin') return $mode;
-    if ($mode === 'development' && in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true)) {
-        return $mode;
-    }
-    return null;
-}
-function payroll_portal_allows_role(string $role): bool {
-    return match (payroll_portal_mode()) {
-        'employee' => $role === 'karyawan',
-        'admin' => $role === 'superadmin',
-        'development' => in_array($role, ['karyawan', 'superadmin'], true),
-        default => false,
-    };
-}
 function user_home(): string {
     return ($_SESSION['user']['role']??'superadmin')==='karyawan' ? '/karyawan/slip' : '/';
 }

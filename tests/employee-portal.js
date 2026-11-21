@@ -27,40 +27,6 @@ async function choose(page,id,value){
  await navigation;await expect(page.locator('#'+id)).toHaveValue(String(value));
  expect(await page.evaluate(()=>window.employeePrintCalls)).toBe(0);
 }
-async function verifyPortalModes({newPage,start,extraServers,ready,adminPassword,employeePassword}){
- const addresses={};
- for(const mode of ['employee','admin','invalid']){
-  const port=await freePort();
-  addresses[mode]=`http://127.0.0.1:${port}`;
-  extraServers.push(start(port,root,{PAYROLL_PORTAL:mode}));
-  if(mode!=='invalid')await ready(addresses[mode]);
- }
- const page=await newPage(390);
- await expect.poll(async()=>{
-  try{return (await page.request.get(addresses.invalid+'/login')).status();}catch{return 0;}
- }).toBe(404);
- await login(page,addresses.employee,'qa_employee_admin',adminPassword);
- await expect(page).toHaveURL(addresses.employee+'/login');
- await expect(page.getByText('ID pengguna atau kata sandi tidak sesuai.',{exact:true}).first()).toBeVisible();
- await login(page,addresses.admin,'DUMMY003',employeePassword);
- await expect(page).toHaveURL(addresses.admin+'/login');
- await expect(page.getByText('ID pengguna atau kata sandi tidak sesuai.',{exact:true}).first()).toBeVisible();
- await login(page,addresses.admin,'qa_employee_admin',adminPassword);
- await expect(page).toHaveURL(addresses.admin+'/');
- await expect(page.getByRole('heading',{name:/Dashboard Penggajian/})).toBeVisible();
- for(const route of ['/setup','/forgot-password','/reset-password','/transaksi','/laporan','/migrasi','/master/karyawan','/akun-karyawan','/api/hitung']){
-  expect((await page.request.get(addresses.employee+route)).status()).toBe(404);
- }
- await login(page,addresses.employee,'DUMMY003',employeePassword);
- await expect(page).toHaveURL(addresses.employee+'/karyawan/slip');
- const pdf=await page.request.get(addresses.employee+'/karyawan/slip/pdf?bulan=10&tahun=2026&nip=DUMMY001');
- expect(pdf.status()).toBe(200);
- expect(pdf.headers()['content-type']).toBe('application/pdf');
- await page.goto(addresses.admin+'/');
- await expect(page.getByRole('heading',{name:/Dashboard Penggajian/})).toBeVisible();
- expect((await page.request.get(addresses.admin+'/karyawan/slip/pdf?bulan=10&tahun=2026')).status()).toBe(404);
- console.log('PASS: portal employee/admin terpisah, rute admin terkunci, dan sesi dua portal tidak saling mengganti.');
-}
 (async()=>{
  let server,rootServer,browser,created=false;
  const errors=[],extraServers=[];
@@ -155,7 +121,6 @@ async function verifyPortalModes({newPage,start,extraServers,ready,adminPassword
   fixture('invalidate_admin');expect((await postReveal()).status()).toBe(401);
   const unauth=await newPage();expect((await unauth.request.get(base+'/karyawan/slip/pdf?bulan=10&tahun=2026',{headers:{'X-Requested-With':'XMLHttpRequest'}})).status()).toBe(401);expect((await unauth.request.post(base+'/akun-karyawan/password',{headers:{'X-Requested-With':'XMLHttpRequest'},form:{_csrf:adminToken,id:actor.id}})).status()).toBe(401);
   const rootPort=await freePort(),rootOrigin=`http://127.0.0.1:${rootPort}`;rootServer=start(rootPort,root);await ready(rootOrigin);const rootPage=await newPage();await login(rootPage,rootOrigin,'DUMMY003',personal[2]);await expect(rootPage).toHaveURL(rootOrigin+'/karyawan/slip');await rootPage.goto(rootOrigin+'/karyawan/slip?bulan=10&tahun=2026&view=1');expect(await rootPage.evaluate(()=>window.employeePrintCalls)).toBe(0);await expect(rootPage.locator('.employee-print-document')).toBeVisible();await rootPage.getByRole('button',{name:'Cetak',exact:true}).click();expect(await rootPage.evaluate(()=>window.employeePrintCalls)).toBe(1);
-  await verifyPortalModes({newPage,start,extraServers,ready,adminPassword,employeePassword:personal[2]});
   const after=JSON.parse(fixture('status'));expect(after.reveal_audit).toBe(11);expect(errors).toEqual([]);
   console.log('PASS: direct password reveal without reauthentication; CSRF/role/session checks; audit; encrypted-data failure; account activation; leading zeroes; reminder after relogin; root/subfolder print; no JS errors.');
  }finally{if(browser)await browser.close();for(const child of [server,rootServer,...extraServers]){if(child&&child.exitCode===null){const stopped=new Promise(r=>child.once('exit',r));child.kill();await stopped;}}if(created)fixture('cleanup');}

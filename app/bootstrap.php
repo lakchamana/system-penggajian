@@ -41,14 +41,7 @@ if (PHP_SAPI !== 'cli') {
     header('X-Content-Type-Options: nosniff'); header('X-Frame-Options: SAMEORIGIN'); header('Referrer-Policy: same-origin');
     header('Cache-Control: no-store');
     header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'");
-    $portal = payroll_portal_mode();
-    if ($portal !== null) {
-        session_name(match ($portal) {
-            'employee' => 'mh_payroll_employee',
-            'admin' => 'mh_payroll_admin',
-            default => 'mh_payroll',
-        });
-        session_set_cookie_params(['httponly'=>true,'samesite'=>'Lax','secure'=>!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS']!=='off','path'=>app_base_path().'/','domain'=>'']);
-        session_start();
-    }
+    session_name('mh_payroll');
+    session_set_cookie_params(['httponly'=>true,'samesite'=>'Lax','secure'=>!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS']!=='off','path'=>app_base_path().'/']);
+    session_start();
 }
